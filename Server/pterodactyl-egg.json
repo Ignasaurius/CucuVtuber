@@ -23,7 +23,7 @@
   "scripts": {
     "installation": {
       "script": "#!/bin/bash\napt update\napt install -y git curl\ncd /mnt/server\n\n# Descarga el monorepositorio en una carpeta temporal\ngit clone https://github.com/Ignasaurius/CucuVtuber.git /mnt/server/.temp_repo\n\n# Únicamente extrae los archivos de la carpeta 'Server' para el Docker\nmv /mnt/server/.temp_repo/Server/* /mnt/server/\n\n# Limpia la versión de escritorio de Windows (MacroClient) para ahorrar espacio\nrm -rf /mnt/server/.temp_repo\n",
-      "container": "debian:bookworm-slim",
+      "container": "ghcr.io/pterodactyl/installers:debian",
       "entrypoint": "bash"
     }
   },
