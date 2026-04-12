@@ -1,0 +1,19 @@
+# Dependencias de paquetes
+node_modules/
+
+# Archivos de configuración y datos que pueden contener tokens o datos personales
+Server/.env
+Server/database.json
+Server/systemConfig.json
+
+# Imágenes subidas por usuarios
+Server/public/uploads/
+
+# Archivos de la compilación de la app
+MacroClient/dist/
+MacroClient/release/
+MacroClient/build/
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db

@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cucu V-Tuber System | Dashboard</title>
+    <link rel="icon" type="image/png" href="/icon.png">
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script> <!-- AÑADIDO PARA METRICAS EN VIVO -->
+</head>
+<body>
+
+    <!-- OVERLAY CUANDO EL BOT NO ESTA CONECTADO -->
+    <div id="botLoginOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9999; justify-content:center; align-items:center; flex-direction:column; text-align:center;">
+        <h1 style="color:white; margin-bottom:10px; font-size:2.5rem;">🤖 Servidor de Discord Inactivo</h1>
+        <p style="color:#949ba4; max-width:500px; margin-bottom:30px; font-size:1.1rem;">Tu instancia necesita el Token de la Aplicación de Discord para encender el motor y cargar los perfiles.</p>
+        <div style="background:#2b2d31; padding:30px; border-radius:8px; border:1px solid #333;">
+            <input type="password" id="discordTokenInput" placeholder="Token Secreto del Bot de Discord" style="padding:12px; font-size:1rem; border-radius:4px; border:1px solid #111214; background:#1e1f22; color:white; width:350px; text-align:center; outline:none; margin-bottom:15px;">
+            <br>
+            <button id="discordLoginBtn" style="padding:12px 24px; font-size:1.1rem; font-weight:bold; background:#5865F2; color:white; border:none; border-radius:4px; cursor:pointer; transition:0.2s;">Conectar e Iniciar Motor 🟢</button>
+        </div>
+    </div>
+
+    <!-- BOT STATUS STICKY (Fuera del Container) -->
+    <div id="botFixedStatus" style="position:fixed; top:15px; right:15px; display:none; align-items:center; gap:10px; background:#1e1f22; padding:8px 15px; border-radius:8px; border:1px solid #333; z-index:1000; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+        <span id="botStatusText" style="font-size:0.9rem; font-weight:bold; color:#43b581;">Online 🟢</span>
+        <span id="botTagDisplay" style="font-size:0.9rem; font-weight:bold; color:#dbdee1;"></span>
+        <button type="button" id="discordLogoutBtn" style="padding:4px 10px; font-size:0.8rem; background:#da373c; color:white; border:none; border-radius:4px; font-weight:bold; cursor:pointer; transition:0.2s;">Cerrar Sesión</button>
+    </div>
+
+    <div class="container" id="mainContainer">
+        <header>
+            <h1>🎙️ Cucu Voice Tubers</h1>
+            <p style="color: #dbdee1; font-size: 1.1rem; font-weight: 600;">Subu Family</p>
+        </header>
+
+        <form id="configForm">
+            <div class="user-selector" style="display: flex; flex-wrap: wrap; background: #1e1f22; padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem; border: 1px solid #4e5058; gap: 1rem;">
+                <div style="flex: 1; min-width: 250px;">
+                    <label for="userSelect" style="display:block; margin-bottom:0.8rem; font-weight:600; color:#dbdee1;">👤 Selecciona un usuario activo de Discord</label>
+                    <select id="userSelect" style="width: 100%; margin-bottom: 0.5rem;">
+                        <option value="">Cargando usuarios...</option>
+                    </select>
+                    <label for="userId" style="display:none;">ID de Discord</label>
+                    <input type="text" id="userId" name="userId" placeholder="ID Interno" required readonly style="background: transparent; border: none; font-size: 0.8rem; color: #949ba4; padding: 0; margin-top: 0;">
+                </div>
+                
+                <div id="profileContainer" style="display: none; flex: 1.5; min-width: 300px; border-left: 1px solid #4e5058; padding-left: 1rem;">
+                    <label for="profileSelect" style="display:block; margin-bottom:0.8rem; font-weight:600; color:#dbdee1;">🎭 Emoción / Perfil</label>
+                    <div style="display: flex; gap: 0.5rem; align-items: stretch; margin-bottom: 0.5rem;">
+                        <select id="profileSelect" style="flex: 1;"></select>
+                        <button type="button" id="makeActiveBtn" data-active="false" style="background:#23a559; color:white; padding:0 12px; font-weight: bold; border-radius:4px; border:none; cursor:pointer; transition:0.2s;" title="Activar este perfil en OBS">✅ Activar OBS</button>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; justify-content: flex-start;">
+                        <button type="button" id="newProfileBtn" style="background:#2b2d31; color:#dbdee1; padding:4px 8px; font-size:12px; border-radius:4px; border: 1px solid #4e5058; cursor:pointer;" title="Crear Perfil en Cero">+ Nuevo (Vacío)</button>
+                        <button type="button" id="dupProfileBtn" style="background:#2b2d31; color:#dbdee1; padding:4px 8px; font-size:12px; border-radius:4px; border: 1px solid #4e5058; cursor:pointer;" title="Duplicar Configuraciones">📄 Duplicar</button>
+                        <button type="button" id="renameProfileBtn" style="background:#2b2d31; color:#dbdee1; padding:4px 8px; font-size:12px; border-radius:4px; border: 1px solid #4e5058; cursor:pointer;">✏️ Renombrar</button>
+                        <button type="button" id="delProfileBtn" style="background:#da373c; color:white; padding:4px 8px; font-size:12px; border-radius:4px; border: none; cursor:pointer;">🗑️ Eliminar</button>
+                    </div>
+                    
+                    <div style="margin-top: 1.5rem; border-top: 1px solid #4e5058; padding-top: 1rem;">
+                        <label style="display:block; margin-bottom:0.4rem; font-weight:600; color:#dbdee1;">🔑 API Token (Para Control de Macros)</label>
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <input type="password" id="apiTokenInput" readonly placeholder="Ninguno. Presiona Reset Token... " style="background: #111214; border: 1px solid #4e5058; color: #5865F2; padding: 0.4rem; border-radius: 4px; font-family: monospace; width: 100%;">
+                            <button type="button" id="toggleTokenBtn" title="Mostrar/Ocultar" style="background: none; border: none; cursor: pointer; color: white; font-size: 1.2rem;">👁️</button>
+                            <button type="button" id="copyTokenBtn" title="Copiar" style="background: #2b2d31; color: white; border: 1px solid #4e5058; border-radius: 4px; padding: 0.4rem; cursor: pointer;">📋</button>
+                        </div>
+                        <button type="button" id="resetTokenBtn" style="margin-top: 0.4rem; background: transparent; border: none; color: #da373c; font-size: 0.8rem; cursor: pointer; text-decoration: underline;">Generar Nuevo Reset Token Secreto</button>
+                    </div>
+                </div>
+            </div>
+
+            <h3>📸 Estados del Avatar</h3>
+            <div class="upload-area grid-states">
+                <div class="upload-box">
+                    <label>Idle (Silencio) <button type="button" class="clear-btn" data-clear="idle" title="Eliminar imagen">🗑️</button></label>
+                    <input type="file" id="idleFile" name="idle" accept="image/*">
+                    <div id="idlePreview" class="preview placeholder">Sube un archivo</div>
+                </div>
+                <div class="upload-box active-ring">
+                    <label>Speaking (Hablando) <button type="button" class="clear-btn" data-clear="speaking" title="Eliminar imagen">🗑️</button></label>
+                    <input type="file" id="speakingFile" name="speaking" accept="image/*">
+                    <div id="speakingPreview" class="preview placeholder">Sube un archivo</div>
+                </div>
+                <div class="upload-box">
+                    <label>Pestañeo Callado <button type="button" class="clear-btn" data-clear="idleBlink" title="Eliminar imagen">🗑️</button></label>
+                    <input type="file" id="idleBlinkFile" name="idleBlink" accept="image/*">
+                    <div id="idleBlinkPreview" class="preview placeholder" style="border: 2px dashed #5865F2;">Sube un archivo</div>
+                </div>
+                <div class="upload-box">
+                    <label>Pestañeo Hablando <button type="button" class="clear-btn" data-clear="speakingBlink" title="Eliminar imagen">🗑️</button></label>
+                    <input type="file" id="speakingBlinkFile" name="speakingBlink" accept="image/*">
+                    <div id="speakingBlinkPreview" class="preview placeholder" style="border: 2px dashed #23a559;">Sube un archivo</div>
+                </div>
+                <div class="upload-box shout-ring">
+                    <label>Shouting (Gritando) <button type="button" class="clear-btn" data-clear="shouting" title="Eliminar imagen">🗑️</button></label>
+                    <input type="file" id="shoutingFile" name="shouting" accept="image/*">
+                    <div id="shoutingPreview" class="preview placeholder">Sube un archivo</div>
+                </div>
+                <div class="upload-box muted-ring">
+                    <label>Muted (Mic apagado) <button type="button" class="clear-btn" data-clear="muted" title="Eliminar imagen">🗑️</button></label>
+                    <input type="file" id="mutedFile" name="muted" accept="image/*">
+                    <div id="mutedPreview" class="preview placeholder">Sube un archivo</div>
+                </div>
+                <div class="upload-box deafened-ring">
+                    <label>Deafened (Sin audífonos) <button type="button" class="clear-btn" data-clear="deafened" title="Eliminar imagen">🗑️</button></label>
+                    <input type="file" id="deafenedFile" name="deafened" accept="image/*">
+                    <div id="deafenedPreview" class="preview placeholder">Sube un archivo</div>
+                </div>
+                
+                <div class="upload-box" style="border: 1px solid #4e5058; padding: 1rem; border-radius: 8px; justify-content: center; background: #2b2d31;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 1px solid #4e5058; padding-bottom: 0.5rem;">
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <input type="checkbox" id="enableBlinkCheckbox" name="enableBlink" checked>
+                            <label for="enableBlinkCheckbox" style="color: #23a559; font-weight: bold; cursor: pointer; font-size: 0.9rem;">🟢 Habilitar Sistema de Pestañeo</label>
+                        </div>
+                        <button type="button" id="resetBlinkBtn" style="background: none; border: 1px solid #4e5058; color: #dbdee1; padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; cursor: pointer; transition: 0.2s;">↻ Restaurar</button>
+                    </div>
+                
+                    <label style="color: #dbdee1; font-weight: 600; display:flex; justify-content:space-between; margin-bottom: 0.5rem;">Frecuencia Pestañeo <span id="blinkIntervalLabel" style="color: #5865F2; font-weight: 800;">4 s</span></label>
+                    <input type="range" id="blinkIntervalInput" name="blinkInterval" min="2" max="15" step="0.5" value="4" style="width: 100%; cursor: pointer;">
+                    
+                    <label style="color: #dbdee1; font-weight: 600; display:flex; justify-content:space-between; margin-top: 1.5rem; margin-bottom: 0.5rem;">Duración Pestañeo <span id="blinkDurationLabel" style="color: #5865F2; font-weight: 800;">0.15 s</span></label>
+                    <input type="range" id="blinkDurationInput" name="blinkDuration" min="0.05" max="0.5" step="0.05" value="0.15" style="width: 100%; cursor: pointer;">
+                </div>
+            </div>
+
+            <hr>
+            <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 0.5rem;">
+                <h3 style="margin: 0;">🎚️ Calibración de Micrófono (dB)</h3>
+                <button type="button" id="resetDbBtn" style="background: none; border: 1px solid #4e5058; color: #dbdee1; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; cursor: pointer; transition: 0.2s;">↻ Restaurar valores</button>
+            </div>
+            <div class="meter-container" style="background:#1e1f22; padding:1rem; border-radius:8px; border: 1px solid #4e5058; margin-bottom: 2rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                    <label for="maxDbStretchInput" style="color: #dbdee1; font-weight: 600;">Límite Físicas (Stretch/Velocidad al MAX)</label>
+                    <span id="maxDbStretchLabel" style="color: #5865F2; font-weight: 800; font-size: 1.2rem;">-22 dB</span>
+                </div>
+                <input type="range" id="maxDbStretchInput" name="maxDbStretch" min="-60" max="0" step="1" value="-22" style="width: 100%; cursor: pointer;">
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem; margin-bottom: 0.5rem;">
+                    <label for="maxDbShoutInput" style="color: #e6aa00; font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
+                        <input type="checkbox" id="enableShoutCheckbox" name="enableShout" checked>
+                        Límite Saturación (Activar Cara de Grito)
+                    </label>
+                    <span id="maxDbShoutLabel" style="color: #e6aa00; font-weight: 800; font-size: 1.2rem;">-15 dB</span>
+                </div>
+                <input type="range" id="maxDbShoutInput" name="maxDbShout" min="-60" max="0" step="1" value="-15" style="width: 100%; cursor: pointer;">
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; margin-bottom: 0.5rem;">
+                    <label for="minDbGateInput" style="color: #949ba4; font-weight: 600;">Ignorar Ruido Ambiental (Filtro de Silencio)</label>
+                    <span id="minDbGateLabel" style="color: #949ba4; font-weight: 800; font-size: 1.2rem;">-40 dB</span>
+                </div>
+                <input type="range" id="minDbGateInput" name="minDbGate" min="-60" max="-10" step="1" value="-40" style="width: 100%; cursor: pointer;">
+                
+                <div class="live-meter-wrapper" style="width: 100%; height: 28px; background: #111214; border-radius: 6px; margin-top: 1.5rem; overflow: hidden; position: relative;">
+                    <!-- Barra de volumen conectada al bot en vivo por Websocket -->
+                    <div id="liveMeterBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #23a559 60%, #e6aa00 85%, #f23f42 100%); transition: width 0.05s linear;"></div>
+                    <div style="position: absolute; top:0; left:0; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; text-shadow: 1px 1px 2px black;">
+                        <span id="liveRmsText" style="font-size: 0.9rem; font-family: monospace; font-weight: bold; color: white; letter-spacing: 1px;">-60.0 dB</span>
+                    </div>
+                </div>
+                <p style="font-size: 0.8rem; color: #949ba4; margin-top: 0.8rem; line-height: 1.4;">Habla o grita por tu micrófono para probar. El calibrador emula el mezclador de OBS en decibeles reales. Ajusta el límite empujándolo a la izquierda o derecha para decidir exactamente dónde romperá tu animación a la fase de grito extremo.</p>
+            </div>
+
+            <hr>
+            <h2>🎬 Animaciones</h2>
+            <div class="form-group grid-3">
+                <div class="flex-column">
+                    <label for="animIntro">Al Entrar</label>
+                    <select id="animIntro" name="animIntro">
+                        <option value="none">None</option>
+                        <option value="pop">Pop In</option>
+                        <option value="slideUp">Slide Up</option>
+                        <option value="fade">Fade In</option>
+                        <option value="bounce">Bounce Drop</option>
+                        <option value="spin">Spin In</option>
+                        <option value="swing">Swing In</option>
+                        <option value="zoomIn">Zoom In</option>
+                        <option value="slideRight">Slide Right</option>
+                        <option value="slideLeft">Slide Left</option>
+                        <option value="flip">Flip 3D</option>
+                        <option value="rollIn">Roll In</option>
+                    </select>
+                    <button type="button" class="test-btn" onclick="testAnim('intro')">Prueba</button>
+                </div>
+                <div class="flex-column">
+                    <label for="animSpeaking">Al Hablar</label>
+                    <select id="animSpeaking" name="animSpeaking">
+                        <optgroup label="Básicas (Traslación)">
+                            <option value="bounce_talk">Bounce Talk</option>
+                            <option value="float">Float</option>
+                            <option value="jump">Jump (Saltos Altos)</option>
+                            <option value="shake">Shake</option>
+                        </optgroup>
+                        <optgroup label="Deformación (Escala)">
+                            <option value="stretch">Stretch (Clásico)</option>
+                            <option value="pulse">Pulse</option>
+                            <option value="rubberband">RubberBand (Animate.css)</option>
+                        </optgroup>
+                        <optgroup label="Combinadas (Animista / Animate)">
+                            <option value="wiggle">Wiggle (Loco)</option>
+                            <option value="tada">Tada (Animate.css)</option>
+                            <option value="heartbeat">Heartbeat (Animista)</option>
+                            <option value="jello">Jello (Animista)</option>
+                            <option value="swing_hablando">Swing (Balanceo)</option>
+                        </optgroup>
+                        <option value="none">Ninguna</option>
+                    </select>
+                    <button type="button" class="test-btn" onclick="testAnim('speaking')">Prueba</button>
+                </div>
+                <div class="flex-column">
+                    <label for="animOutro">Al Salir</label>
+                    <select id="animOutro" name="animOutro">
+                        <option value="none">None</option>
+                        <option value="popOut">Pop Out</option>
+                        <option value="slideDown">Slide Down</option>
+                        <option value="fade">Fade Out</option>
+                        <option value="spinOut">Spin Out</option>
+                        <option value="swingOut">Swing Out</option>
+                        <option value="zoomOut">Zoom Out</option>
+                        <option value="slideRightOut">Slide Right</option>
+                        <option value="slideLeftOut">Slide Left</option>
+                        <option value="flipOut">Flip Out 3D</option>
+                        <option value="rollOut">Roll Out</option>
+                    </select>
+                    <button type="button" class="test-btn" onclick="testAnim('outro')">Prueba</button>
+                </div>
+            </div>
+
+            <div class="form-group grid-2" style="margin-top: 1.5rem; margin-bottom: 0.5rem;">
+                <div class="flex-column">
+                    <label for="animDirection">Sentido de Movimiento (Para Saltos, Stretch y Bounces)</label>
+                    <select id="animDirection" name="animDirection">
+                        <option value="vertical">Vertical (Arriba / Abajo)</option>
+                        <option value="horizontal">Horizontal (Izquierda / Derecha)</option>
+                    </select>
+                </div>
+                <div class="flex-column">
+                    <label for="animPivot">Pivote / Punto de Origen (Afecta rotaciones y saltos)</label>
+                    <select id="animPivot" name="animPivot">
+                        <option value="50% 100%">Abajo Centro (Normal)</option>
+                        <option value="50% 50%">Centro Centro (Gravedad Cero)</option>
+                        <option value="0% 100%">Abajo Izquierda</option>
+                        <option value="100% 100%">Abajo Derecha</option>
+                        <option value="50% 0%">Arriba Centro (Colgando)</option>
+                        <option value="0% 0%">Arriba Izquierda</option>
+                        <option value="100% 0%">Arriba Derecha</option>
+                        <option value="0% 50%">Centro Izquierda</option>
+                        <option value="100% 50%">Centro Derecha</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="checkbox-group">
+                <input type="checkbox" id="animUseDb" name="animUseDb" checked>
+                <label for="animUseDb">Intensidad y Velocidad Dinámica (Alterar la fuerza según dB reales)</label>
+            </div>
+            <div class="checkbox-group" style="margin-top:-0.5rem; margin-bottom:1.5rem;">
+                <input type="checkbox" id="animDbStretch" name="animDbStretch" checked>
+                <label for="animDbStretch">Squash & Stretch global (Añade deformación en todas las animaciones extra)</label>
+            </div>
+
+            <div style="background: #1e1f22; border: 1px solid #4e5058; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                    <label for="animSafeZone" style="color: #dbdee1; font-weight: 600;">Espacio Extra (Margen Anti-Cortes)</label>
+                    <span id="animSafeZoneLabel" style="color: #5865F2; font-weight: 800; font-size: 1.2rem;">50 px</span>
+                </div>
+                <input type="range" id="animSafeZone" name="animSafeZone" min="0" max="300" step="5" value="50" style="width: 100%; cursor: pointer;">
+                <details style="font-size: 0.8rem; color: #949ba4; margin-top: 0.7rem; cursor: pointer;">
+                    <summary style="outline: none; font-weight: 600;">ℹ️ ¿Para qué sirve este margen?</summary>
+                    <div style="margin-top: 0.5rem; line-height: 1.4; background: #2b2d31; padding: 10px; border-radius: 6px;">Añade espacio dinámico alrededor del personaje basado en el pivote. Evita que la cabeza se corte en OBS al usar animaciones que amplían su tamaño y elimina el bug donde el Tuber levitaba al ser escalado por debajo del suelo.</div>
+                </details>
+            </div>
+
+            <div class="preview-stage-container">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                    <p style="color: #949ba4; font-size: 0.9rem; margin:0;">Vista Previa</p>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <input type="checkbox" id="micPreviewToggle">
+                        <label for="micPreviewToggle" style="color: #f23f42; font-weight:bold; font-size: 0.8rem; cursor:pointer;">🎙️ Previsualizar con tu Micrófono Directo</label>
+                    </div>
+                </div>
+                <div id="previewStage">
+                    <div id="previewBoundary" style="position:relative;">
+                        <div id="previewAvatar"></div>
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" id="saveBtn">Guardar Configuración</button>
+        </form>
+
+        <div id="link-section" class="hidden">
+            <h2>💡 Tu enlace para OBS</h2>
+            <div class="obs-link-box">
+                <input type="text" id="obsLink" readonly>
+                <button onclick="copyLink()">Copiar</button>
+            </div>
+            <p style="font-size: 0.8rem; color: #f23f42; font-weight: bold; margin-top: 0.5rem; text-align: center;">⚠️ Recomendado: Ajustar Ancho y Alto a 512x512 en las propiedades de OBS.</p>
+        </div>
+
+        <div style="text-align: center; margin-top: 3rem; margin-bottom: 1rem; color: #4e5058; font-size: 0.9rem; font-weight: 800; text-transform: uppercase; letter-spacing: 2px;">
+            Made by Nachoco
+        </div>
+    </div>
+    <script src="config.js"></script>
+</body>
+</html>

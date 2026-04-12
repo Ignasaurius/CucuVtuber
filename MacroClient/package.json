@@ -1,0 +1,26 @@
+{
+  "name": "macroclient",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --windows portable"
+  },
+  "build": {
+    "appId": "com.cucutubers.macro",
+    "productName": "CucuMacroClient",
+    "win": {
+      "target": "portable",
+      "icon": "icon.png"
+    }
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "electron": "^41.1.1",
+    "electron-builder": "^26.8.1"
+  }
+}

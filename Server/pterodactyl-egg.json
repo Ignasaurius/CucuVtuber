@@ -1,0 +1,42 @@
+{
+  "_comment": "DO NOT EDIT: FILE GENERATED AUTOMATICALLY BY PTERODACTYL PANEL - PTERODACTYL.IO",
+  "meta": {
+    "version": "PTDL_v2",
+    "update_url": null
+  },
+  "exported_at": "2026-04-12T00:00:00+00:00",
+  "name": "Bot VTuber Server",
+  "author": "supantaignacio@gmail.com",
+  "description": "Servidor backend del Bot VTuber con express y discord.js.",
+  "features": [],
+  "docker_images": {
+    "Node.js 20": "ghcr.io/pterodactyl/yolks:nodejs_20"
+  },
+  "file_denylist": [],
+  "startup": "if [ -f /home/container/package.json ]; then npm install --production; fi; node index.js",
+  "config": {
+    "files": "{\n    \".env\": {\n        \"parser\": \"properties\",\n        \"find\": {\n            \"DISCORD_TOKEN\": \"{{env.DISCORD_TOKEN}}\"\n        }\n    }\n}",
+    "startup": "{\n    \"done\": \"Servidor web iniciado en el puerto\"\n}",
+    "logs": "{}",
+    "stop": "^C"
+  },
+  "scripts": {
+    "installation": {
+      "script": "#!/bin/bash\napt update\napt install -y git curl\ncd /mnt/server\n\n# Descarga el monorepositorio en una carpeta temporal\ngit clone https://github.com/Ignasaurius/CucuVtuber.git /mnt/server/.temp_repo\n\n# Únicamente extrae los archivos de la carpeta 'Server' para el Docker\nmv /mnt/server/.temp_repo/Server/* /mnt/server/\n\n# Limpia la versión de escritorio de Windows (MacroClient) para ahorrar espacio\nrm -rf /mnt/server/.temp_repo\n",
+      "container": "debian:bookworm-slim",
+      "entrypoint": "bash"
+    }
+  },
+  "variables": [
+    {
+      "name": "Discord Token",
+      "description": "Token opcional para iniciar sesión automáticamente al prender el servidor.",
+      "env_variable": "DISCORD_TOKEN",
+      "default_value": "",
+      "user_viewable": 1,
+      "user_editable": 1,
+      "rules": "nullable|string|max:191",
+      "field_type": "text"
+    }
+  ]
+}

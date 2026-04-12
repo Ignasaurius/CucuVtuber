@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Cucu Macro Desktop</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body { 
+            background: #1e1f22; 
+            color: #dbdee1; 
+            font-family: 'Inter', sans-serif; 
+            margin: 0; 
+            padding: 2rem; 
+        }
+        h1 { color: white; margin-top: 0; font-size: 1.5rem; border-bottom: 2px solid #4e5058; padding-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; }
+        
+        .setup-box { background: #2b2d31; padding: 1.5rem; border-radius: 8px; border: 1px solid #4e5058; margin-bottom: 1.5rem; }
+        .setup-box input { padding: 0.5rem; border-radius: 4px; border: none; background: #383a40; color: white; width: 100%; box-sizing: border-box; margin-bottom: 0.5rem; font-family: monospace; }
+        .setup-box button { background: #5865F2; border: none; cursor: pointer; color: white; padding: 0.5rem 1rem; border-radius: 4px; font-weight: bold; width: 100%; transition: 0.2s; font-size: 1rem; }
+        .setup-box button:hover { background: #4752c4; }
+
+        .status { padding: 1rem; background: #2b2d31; border-radius: 8px; font-weight: bold; text-align: center; color: #f23f42; margin-bottom: 1.5rem; }
+        .status.connected { color: #23a559; background: rgba(35, 165, 89, 0.1); border: 1px solid #23a559; }
+
+        .grid { display: grid; grid-template-columns: 1fr; gap: 1rem; }
+        
+        .macro-row { 
+            background: #2b2d31; 
+            border: 2px solid #4e5058; 
+            border-radius: 8px; 
+            padding: 1rem; 
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .prof-name { font-size: 1.1rem; font-weight: 800; color: white; display: flex; align-items: center; gap: 0.5rem; }
+        .prof-name.active { color: #23a559; }
+        
+        .macro-bind {
+            background: #111214;
+            border: 1px solid #4e5058;
+            color: #dbdee1;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: monospace;
+            font-size: 0.9rem;
+            transition: 0.2s;
+            min-width: 120px;
+            text-align: center;
+        }
+        .macro-bind:hover { background: #383a40; border-color: #5865F2; color: white; }
+        .macro-bind.recording { background: #da373c; color: white; border-color: #da373c; animation: pulse 1s infinite; }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        #logoutBtn { background: transparent; border: 1px solid #da373c; color: #da373c; padding: 0.3rem 0.6rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: bold; transition: 0.2s; display: none; }
+        #logoutBtn:hover { background: #da373c; color: white; }
+    </style>
+</head>
+<body>
+    <h1>
+        <span>🎮 Cucu Macro Deck</span>
+        <div>
+            <button id="refreshBtn" style="background:#5865F2; border:none; color:white; padding: 0.3rem 0.6rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: bold; margin-right: 5px; display: none; transition: 0.2s;">🔄 Refrescar</button>
+            <button id="logoutBtn">Cerrar Sesión</button>
+        </div>
+    </h1>
+    
+    <div class="setup-box" id="setupForm">
+        <label style="display:block; margin-bottom: 0.5rem; font-weight: bold; font-size: 0.9rem;">URL del Servidor</label>
+        <input type="text" id="serverUrl" placeholder="Ej: http://localhost:3000 o https://cucu.servidor.com">
+
+        <label style="display:block; margin-bottom: 0.5rem; margin-top: 1rem; font-weight: bold; font-size: 0.9rem;">API Token Secreto</label>
+        <input type="password" id="apiToken" placeholder="Pega el token del Bot aquí...">
+
+        <button id="connectBtn" style="margin-top: 1.5rem;">Conectar a Base de Datos</button>
+    </div>
+
+    <div id="statusBox" class="status" style="display:none;">🔌 Conectando con Servicio Local...</div>
+    
+    <div id="macros" class="grid">
+        <!-- Renderizados dinamicamente desde renderer.js -->
+    </div>
+    
+    <script src="renderer.js"></script>
+</body>
+</html>
