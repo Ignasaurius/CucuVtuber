@@ -37,6 +37,16 @@
       "user_editable": 1,
       "rules": "nullable|string|max:191",
       "field_type": "text"
+    },
+    {
+      "name": "Server Port",
+      "description": "El puerto en el que se alojará el panel web (Por defecto 3000).",
+      "env_variable": "SERVER_PORT",
+      "default_value": "3000",
+      "user_viewable": 1,
+      "user_editable": 1,
+      "rules": "required|numeric|max:65535",
+      "field_type": "text"
     }
   ]
 }
