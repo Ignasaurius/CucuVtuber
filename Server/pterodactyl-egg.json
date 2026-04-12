@@ -13,17 +13,17 @@
     "Node.js 22": "ghcr.io/pterodactyl/yolks:nodejs_22"
   },
   "file_denylist": [],
-  "startup": "rm -f package-lock.json && npm install --omit=dev --no-audit --no-fund && node index.js",
+  "startup": "node index.js",
   "config": {
-    "files": "{\n    \".env\": {\n        \"parser\": \"properties\",\n        \"find\": {\n            \"DISCORD_TOKEN\": \"{{env.DISCORD_TOKEN}}\"\n        }\n    }\n}",
-    "startup": "{\n    \"done\": \"Servidor web iniciado en el puerto\"\n}",
+    "files": "{    \".env\": {        \"parser\": \"properties\",        \"find\": {            \"DISCORD_TOKEN\": \"{{env.DISCORD_TOKEN}}\"        }    }}",
+    "startup": "{    \"done\": \"Servidor web iniciado en el puerto\"}",
     "logs": "{}",
     "stop": "^C"
   },
   "scripts": {
     "installation": {
-      "script": "#!/bin/bash\napt update\napt install -y git curl\ncd /mnt/server\n\n# Descarga el monorepositorio en una carpeta temporal\ngit clone https://github.com/Ignasaurius/CucuVtuber.git /mnt/server/.temp_repo\n\n# Únicamente extrae los archivos de la carpeta 'Server' para el Docker\nmv /mnt/server/.temp_repo/Server/* /mnt/server/\n\n# Limpia la versión de escritorio de Windows (MacroClient) para ahorrar espacio\nrm -rf /mnt/server/.temp_repo\n",
-      "container": "debian:bookworm-slim",
+      "script": "#!/bin/bash\nset -euo pipefail\n\necho \"==> Instalando dependencias base\"\napt update --quiet\napt install -y --no-install-recommends git curl\n\necho \"==> Iniciando instalación del servidor VTuber\"\ncd /mnt/server\n\necho \"==> Limpiando restos anteriores\"\nrm -rf /mnt/server/.temp_repo\n\necho \"==> Clonando repositorio\"\ngit clone --depth=1 https://github.com/Ignasaurius/CucuVtuber.git /mnt/server/.temp_repo\n\necho \"==> Verificando carpeta Server\"\ntest -d /mnt/server/.temp_repo/Server\n\necho \"==> Copiando contenido de Server a /mnt/server\"\ncp -a /mnt/server/.temp_repo/Server/. /mnt/server/\n\necho \"==> Eliminando carpeta temporal\"\nrm -rf /mnt/server/.temp_repo\n\necho \"==> Verificando package.json\"\ntest -f /mnt/server/package.json\n\necho \"==> Instalando dependencias de Node\"\nnpm install --omit=dev --no-audit --no-fund\n\necho \"==> Instalación completada\"\nls -la /mnt/server\n",
+      "container": "node:22-bookworm-slim",
       "entrypoint": "bash"
     }
   },
