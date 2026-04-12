@@ -13,7 +13,7 @@
     "Node.js 20": "ghcr.io/pterodactyl/yolks:nodejs_20"
   },
   "file_denylist": [],
-  "startup": "if [ -f /home/container/package.json ]; then npm install --production; fi; node index.js",
+  "startup": "npm install --production && node index.js",
   "config": {
     "files": "{\n    \".env\": {\n        \"parser\": \"properties\",\n        \"find\": {\n            \"DISCORD_TOKEN\": \"{{env.DISCORD_TOKEN}}\"\n        }\n    }\n}",
     "startup": "{\n    \"done\": \"Servidor web iniciado en el puerto\"\n}",
