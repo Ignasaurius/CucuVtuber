@@ -11,8 +11,12 @@ const crypto = require('crypto');
 const { setupVoiceConnection, destroyVoiceConnection } = require('./audioProcessor.js');
 
 const app = express();
+app.set('trust proxy', true); // Compatibilidad con Nginx / Cloudflare
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' } });
+
+// Redirigir el index (raíz) al panel de control automáticamente
+app.get('/', (req, res) => res.redirect('/config.html'));
 
 // Middleware para servir archivos estáticos (frontend)
 app.use(express.static(path.join(__dirname, 'public')));

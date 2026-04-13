@@ -8,22 +8,22 @@
   "name": "Bot VTuber Server",
   "author": "supantaignacio@gmail.com",
   "description": "Servidor backend del Bot VTuber con express y discord.js.",
-  "features": [],
+  "features": null,
   "docker_images": {
-    "Node.js 22": "ghcr.io/pterodactyl/yolks:nodejs_22"
+    "Node.js 22": "ghcr.io/ptero-eggs/yolks:nodejs_22"
   },
   "file_denylist": [],
-  "startup": "node index.js",
+  "startup": "node /home/container/index.js",
   "config": {
-    "files": "{    \".env\": {        \"parser\": \"properties\",        \"find\": {            \"DISCORD_TOKEN\": \"{{env.DISCORD_TOKEN}}\"        }    }}",
-    "startup": "{    \"done\": \"Servidor web iniciado en el puerto\"}",
+    "files": "{\n    \".env\": {\n        \"parser\": \"properties\",\n        \"find\": {\n            \"DISCORD_TOKEN\": \"{{env.DISCORD_TOKEN}}\"\n        }\n    }\n}",
+    "startup": "{\n    \"done\": [\n        \"Servidor web iniciado en el puerto\"\n    ]\n}",
     "logs": "{}",
     "stop": "^C"
   },
   "scripts": {
     "installation": {
-      "script": "#!/bin/bash\nset -euo pipefail\n\necho \"==> Instalando dependencias base\"\napt update --quiet\napt install -y --no-install-recommends git curl\n\necho \"==> Iniciando instalación del servidor VTuber\"\ncd /mnt/server\n\necho \"==> Limpiando restos anteriores\"\nrm -rf /mnt/server/.temp_repo\n\necho \"==> Clonando repositorio\"\ngit clone --depth=1 https://github.com/Ignasaurius/CucuVtuber.git /mnt/server/.temp_repo\n\necho \"==> Verificando carpeta Server\"\ntest -d /mnt/server/.temp_repo/Server\n\necho \"==> Copiando contenido de Server a /mnt/server\"\ncp -a /mnt/server/.temp_repo/Server/. /mnt/server/\n\necho \"==> Eliminando carpeta temporal\"\nrm -rf /mnt/server/.temp_repo\n\necho \"==> Verificando package.json\"\ntest -f /mnt/server/package.json\n\necho \"==> Instalando dependencias de Node\"\nnpm install --omit=dev --no-audit --no-fund\n\necho \"==> Instalación completada\"\nls -la /mnt/server\n",
-      "container": "node:22-bookworm-slim",
+      "script": "#!/bin/bash\nset -e\nexport DEBIAN_FRONTEND=noninteractive\n\necho \"==> Node y npm disponibles\"\nnode -v\nnpm -v\n\necho \"==> Instalando dependencias base\"\napt update\napt install -y --no-install-recommends git ca-certificates jq file unzip make gcc g++ python3 python3-pip libtool\n\necho \"==> Preparando directorio\"\nmkdir -p /mnt/server\ncd /mnt/server\nrm -rf .temp_repo node_modules\n\necho \"==> Clonando repositorio\"\ngit clone --depth=1 https://github.com/Ignasaurius/CucuVtuber.git .temp_repo\n\necho \"==> Verificando carpeta Server\"\ntest -d /mnt/server/.temp_repo/Server\n\necho \"==> Copiando archivos de Server\"\ncp -a /mnt/server/.temp_repo/Server/. /mnt/server/\nrm -rf /mnt/server/.temp_repo\n\necho \"==> Verificando archivos requeridos\"\ntest -f /mnt/server/package.json\ntest -f /mnt/server/index.js\n\necho \"==> Instalando dependencias Node\"\nnpm install --omit=dev --no-audit --no-fund\n\necho \"==> Instalación completada\"\nls -la /mnt/server\n",
+      "container": "node:22-trixie-slim",
       "entrypoint": "bash"
     }
   },
