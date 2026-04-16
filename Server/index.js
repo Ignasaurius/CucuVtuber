@@ -303,18 +303,22 @@ async function initDiscordClient(token) {
     client.on('interactionCreate', async interaction => {
         if (!interaction.isChatInputCommand()) return;
         if (interaction.commandName === 'join') {
+            await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => {});
+
             const voiceChannel = interaction.member.voice.channel;
-            if (!voiceChannel) return interaction.reply({ content: 'Debes unirte a un canal de voz primero para que yo pueda seguirte.', flags: [MessageFlags.Ephemeral] });
+            if (!voiceChannel) {
+                return interaction.editReply({ content: 'Debes unirte a un canal de voz primero para que yo pueda seguirte.' }).catch(() => {});
+            }
             
             try {
                 destroyVoiceConnection(voiceChannel.guild.id);
                 currentVoiceChannel = voiceChannel;
                 setupVoiceConnection(client, voiceChannel, io);
                 io.emit('bot_joined_channel');
-                await interaction.reply({ content: `Unido al canal de voz: ${voiceChannel.name} 🎙️`, flags: [MessageFlags.Ephemeral] });
+                await interaction.editReply({ content: `Unido al canal de voz: ${voiceChannel.name} 🎙️` }).catch(() => {});
             } catch (error) {
                 console.error(error);
-                await interaction.reply({ content: 'Error al intentar unirme al canal.', flags: [MessageFlags.Ephemeral] });
+                await interaction.editReply({ content: 'Error al intentar unirme al canal.' }).catch(() => {});
             }
         }
     });
