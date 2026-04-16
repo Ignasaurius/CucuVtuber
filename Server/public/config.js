@@ -129,7 +129,8 @@ userSelect.addEventListener('change', () => {
         return;
     }
 
-    const usr = userConfigs[id] || {};
+    if (!userConfigs[id]) userConfigs[id] = {};
+    const usr = userConfigs[id];
     if (!usr.profiles) usr.profiles = { 'default': { name: 'Principal' } };
     if (!usr.activeProfile) usr.activeProfile = 'default';
 
