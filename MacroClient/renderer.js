@@ -90,6 +90,16 @@ async function fetchProfiles() {
         userProfiles = data.config.profiles;
         lastActiveProfile = data.config.activeProfile;
         
+        // Limpiar atajos de perfiles que ya no existen en este servidor/usuario
+        let mapChanged = false;
+        for (const pId in macroMap) {
+            if (!userProfiles[pId]) {
+                delete macroMap[pId];
+                mapChanged = true;
+            }
+        }
+        if (mapChanged) localStorage.setItem('cucu_macro_map', JSON.stringify(macroMap));
+
         statusBox.textContent = "✅ Micros Globales Activos. ¡Puedes cerrar esta ventana!";
         statusBox.className = "status connected";
         
@@ -188,15 +198,25 @@ async function sendSwapCommand(profileId) {
         });
         
         const data = await res.json();
-        if (res.status === 401 || !data.success) {
+        if (res.status === 401) {
             statusBox.className = "status";
             statusBox.textContent = "🚨 ALERTA: Token Rechazado o Inválido. Cerrando sesión...";
             setTimeout(() => logoutBtn.click(), 3000);
             return;
         }
+        
+        if (!data.success) {
+            statusBox.className = "status";
+            statusBox.textContent = `⚠️ Error de atajo: ${data.error || 'Desconocido'}`;
+            return;
+        }
 
         lastActiveProfile = profileId;
         activeUserId = data.userId; // Sync just in case
+        
+        statusBox.textContent = "✅ Micros Globales Activos. ¡Puedes cerrar esta ventana!";
+        statusBox.className = "status connected";
+        
         renderMacroList();
         
     } catch (e) {
