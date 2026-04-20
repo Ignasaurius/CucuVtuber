@@ -64,10 +64,12 @@ const checkWebAuth = (req, res, next) => {
         return res.status(401).json({ error: 'Setup requerido' });
     }
     
-    const token = getCookie(req, 'webAuthToken') || req.headers['x-web-token'];
+    let rawToken = getCookie(req, 'webAuthToken') || req.headers['x-web-token'];
+    if (rawToken) rawToken = decodeURIComponent(rawToken);
+    
     const validToken = Buffer.from(`${process.env.WEB_USER}:${process.env.WEB_PASSWORD}`).toString('base64');
     
-    if (token === validToken) {
+    if (rawToken === validToken) {
         next();
     } else {
         if (req.path === '/config.html') return res.redirect('/login.html');
