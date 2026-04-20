@@ -190,7 +190,9 @@ app.post('/api/config', checkWebAuth, upload.fields([
 
     // Save GSAP Anim Settings inside correct Profile
     if (req.body.animIntro !== undefined) prof.animIntro = req.body.animIntro;
+    if (req.body.animIntroDir !== undefined) prof.animIntroDir = req.body.animIntroDir;
     if (req.body.animOutro !== undefined) prof.animOutro = req.body.animOutro;
+    if (req.body.animOutroDir !== undefined) prof.animOutroDir = req.body.animOutroDir;
     if (req.body.animSpeaking !== undefined) prof.animSpeaking = req.body.animSpeaking;
     if (req.body.animPivot !== undefined) prof.animPivot = req.body.animPivot;
     if (req.body.animDirection !== undefined) prof.animDirection = req.body.animDirection;
@@ -198,13 +200,13 @@ app.post('/api/config', checkWebAuth, upload.fields([
     if (req.body.maxDbStretch !== undefined) prof.maxDbStretch = parseInt(req.body.maxDbStretch);
     if (req.body.maxDbShout !== undefined) prof.maxDbShout = parseInt(req.body.maxDbShout);
     if (req.body.minDbGate !== undefined) prof.minDbGate = parseInt(req.body.minDbGate);
+    if (req.body.maxExaggeration !== undefined) prof.maxExaggeration = parseFloat(req.body.maxExaggeration);
     if (req.body.blinkInterval !== undefined) prof.blinkInterval = parseFloat(req.body.blinkInterval);
     if (req.body.blinkDuration !== undefined) prof.blinkDuration = parseFloat(req.body.blinkDuration);
     if (req.body.enableBlink !== undefined) prof.enableBlink = req.body.enableBlink === 'true';
     if (req.body.enableShout !== undefined) prof.enableShout = req.body.enableShout === 'true';
     if (req.body.animUseDb !== undefined) prof.animUseDb = req.body.animUseDb === 'true';
     if (req.body.animDbStretch !== undefined) prof.animDbStretch = req.body.animDbStretch === 'true';
-
     if (makeActive === 'true') {
         userConfigs[userId].activeProfile = profileId;
     }
