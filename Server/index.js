@@ -59,7 +59,10 @@ app.post('/api/auth/login', (req, res) => {
 });
 
 const checkWebAuth = (req, res, next) => {
-    if (!process.env.WEB_USER || !process.env.WEB_PASSWORD) return next();
+    if (!process.env.WEB_USER || !process.env.WEB_PASSWORD) {
+        if (req.path === '/config.html') return res.redirect('/login.html');
+        return res.status(401).json({ error: 'Setup requerido' });
+    }
     
     const token = getCookie(req, 'webAuthToken') || req.headers['x-web-token'];
     const validToken = Buffer.from(`${process.env.WEB_USER}:${process.env.WEB_PASSWORD}`).toString('base64');
