@@ -8,7 +8,7 @@ const multer = require('multer');
 const fs = require('fs');
 const sharp = require('sharp');
 const crypto = require('crypto');
-const { setupVoiceConnection, destroyVoiceConnection } = require('./audioProcessor.js');
+const { setupVoiceConnection, destroyVoiceConnection, resetUserVoice } = require('./audioProcessor.js');
 
 const app = express();
 app.set('trust proxy', true); // Compatibilidad con Nginx / Cloudflare
@@ -390,7 +390,14 @@ async function initDiscordClient(token) {
         const data = [
             { name: 'join', description: 'Únete a tu canal de voz actual' },
             { name: 'leave', description: 'Obliga al bot a salir del canal de voz' },
-            { name: 'reload', description: 'Recarga los comandos y el estado del bot' }
+            { name: 'reload', description: 'Recarga los comandos y el estado del bot' },
+            { 
+                name: 'fixvoice', 
+                description: 'Arregla el tracking de audio si a ti o a alguien no se le mueve la boca.',
+                options: [
+                    { name: 'usuario', type: 6, description: 'Selecciona al usuario bugeado (opcional)', required: false }
+                ]
+            }
         ];
         try {
             for (const guild of client.guilds.cache.values()) {
@@ -448,6 +455,17 @@ async function initDiscordClient(token) {
                     initDiscordClient(systemConfig.discordToken).catch(console.error);
                 }
             }, 1500);
+        }
+
+        if (interaction.commandName === 'fixvoice') {
+            await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => {});
+            const targetUser = interaction.options.getUser('usuario');
+            const userToFix = targetUser ? targetUser.id : interaction.user.id;
+            
+            resetUserVoice(userToFix);
+            
+            const mention = targetUser ? `<@${userToFix}>` : 'tu micrófono';
+            await interaction.editReply({ content: `🛠️ He reiniciado el stream de audio para ${mention}. Solo tiene que volver a hablar y su boca debería moverse nuevamente.` }).catch(() => {});
         }
     });
 

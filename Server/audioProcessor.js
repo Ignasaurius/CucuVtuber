@@ -100,4 +100,12 @@ function destroyVoiceConnection(guildId) {
     subscriptions.clear();
 }
 
-module.exports = { setupVoiceConnection, destroyVoiceConnection };
+function resetUserVoice(userId) {
+    if (subscriptions.has(userId)) {
+        const stream = subscriptions.get(userId);
+        stream.destroy();
+        subscriptions.delete(userId);
+    }
+}
+
+module.exports = { setupVoiceConnection, destroyVoiceConnection, resetUserVoice };
