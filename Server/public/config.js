@@ -68,6 +68,23 @@ document.getElementById('discordLogoutBtn').addEventListener('click', async () =
     fetchBotStatus();
 });
 
+const discordReloadBtn = document.getElementById('discordReloadBtn');
+if (discordReloadBtn) {
+    discordReloadBtn.addEventListener('click', async () => {
+        discordReloadBtn.disabled = true;
+        discordReloadBtn.textContent = 'Recargando...';
+        try {
+            await fetch('/api/bot/reload', { method: 'POST' });
+        } catch(e) {
+            console.error(e);
+        }
+        setTimeout(() => {
+            discordReloadBtn.disabled = false;
+            discordReloadBtn.textContent = 'Recargar Bot';
+        }, 2000);
+    });
+}
+
 socket.on('bot_status_change', (data) => updateBotUI(data.status, data.botTag));
 fetchBotStatus();
 // =============================================
@@ -93,6 +110,9 @@ async function fetchUsers() {
         if (users.find(u => u.id === prevVal)) {
             userSelect.value = prevVal;
         }
+
+        if (typeof populatePermSelect === 'function') populatePermSelect(users);
+
     } catch (e) {
         if(userSelect.options.length <= 1 && document.getElementById('botStatusText').textContent.includes('Online')) {
             userSelect.innerHTML = '<option value="">Nadie conectado...</option>';
@@ -104,10 +124,111 @@ setInterval(fetchUsers, 5000); // refresh every 5s
 
 // Load Configs
 async function fetchConfig() {
-    const res = await fetch('/api/config');
-    userConfigs = await res.json();
+    try {
+        const res = await fetch('/api/config');
+        if (res.ok) {
+            userConfigs = await res.json();
+        }
+    } catch(e) {}
 }
 fetchConfig();
+
+// --- PERMISOS DE COMANDOS ---
+const permUsersSelect = document.getElementById('permUsersSelect');
+const permUserIdInput = document.getElementById('permUserIdInput');
+const addPermBtn = document.getElementById('addPermBtn');
+const permList = document.getElementById('permList');
+
+let allowedUsersCache = [];
+
+async function fetchPermissions() {
+    try {
+        const res = await fetch('/api/permissions');
+        if(res.ok) {
+            const data = await res.json();
+            allowedUsersCache = data.allowedUsers || [];
+            renderPermissions();
+        }
+    } catch(e){}
+}
+fetchPermissions();
+
+function renderPermissions() {
+    if (!permList) return;
+    permList.innerHTML = '';
+    if (allowedUsersCache.length === 0) {
+        permList.innerHTML = '<li style="padding: 10px; color: #949ba4; text-align: center;">Vacia (Todos los usuarios permitidos)</li>';
+        return;
+    }
+    
+    allowedUsersCache.forEach(id => {
+        const li = document.createElement('li');
+        li.style = "padding: 10px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333;";
+        // Intentar encontrar alias en userSelect
+        let alias = id;
+        Array.from(userSelect.options).forEach(opt => {
+            if (opt.value === id) alias = opt.textContent.split(' ')[0];
+        });
+        
+        li.innerHTML = `<span style="color:#dbdee1; font-weight:bold;">${alias} <small style="color:#949ba4; font-family:monospace;">(${id})</small></span>
+                        <button type="button" onclick="removePerm('${id}')" style="background:#da373c; color:white; border:none; padding:4px 8px; border-radius:4px; font-size:12px; cursor:pointer;">Eliminar</button>`;
+        permList.appendChild(li);
+    });
+}
+
+window.populatePermSelect = function(activeUsers) {
+    if (!permUsersSelect) return;
+    const prev = permUsersSelect.value;
+    permUsersSelect.innerHTML = '<option value="">O selecciona un usuario conectado...</option>';
+    activeUsers.forEach(u => {
+        const opt = document.createElement('option');
+        opt.value = u.id;
+        opt.textContent = `${u.username} (${u.id})`;
+        permUsersSelect.appendChild(opt);
+    });
+    if (activeUsers.find(u => u.id === prev)) permUsersSelect.value = prev;
+}
+
+permUsersSelect?.addEventListener('change', (e) => {
+    if (e.target.value) permUserIdInput.value = e.target.value;
+});
+
+addPermBtn?.addEventListener('click', async () => {
+    const id = permUserIdInput.value.trim();
+    if (!id) return alert('Debes especificar un ID');
+    
+    try {
+        const res = await fetch('/api/permissions', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ userId: id })
+        });
+        if (res.ok) {
+            const data = await res.json();
+            allowedUsersCache = data.allowedUsers;
+            renderPermissions();
+            permUserIdInput.value = '';
+            permUsersSelect.value = '';
+        }
+    } catch(e) { alert('Error al añadir permiso') }
+});
+
+window.removePerm = async function(id) {
+    if(!confirm('¿Eliminar permiso para ' + id + '?')) return;
+    try {
+        const res = await fetch('/api/permissions/delete', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ userId: id })
+        });
+        if (res.ok) {
+            const data = await res.json();
+            allowedUsersCache = data.allowedUsers;
+            renderPermissions();
+        }
+    } catch(e) {}
+}
+// ----------------------------
 
 userSelect.addEventListener('change', () => {
     const id = userSelect.value;
@@ -175,17 +296,27 @@ function loadProfileIntoUI(conf = {}) {
     else document.getElementById('previewAvatar').style.backgroundImage = 'none';
 
     document.getElementById('animIntro').value = conf.animIntro || 'pop';
+    document.getElementById('animIntroDir').value = conf.animIntroDir || 'up';
     document.getElementById('animOutro').value = conf.animOutro || 'popOut';
+    document.getElementById('animOutroDir').value = conf.animOutroDir || 'down';
+    refreshAnimDirs();
     document.getElementById('animSpeaking').value = conf.animSpeaking || 'bounce_talk';
     document.getElementById('animUseDb').checked = conf.animUseDb !== false; 
     document.getElementById('animDbStretch').checked = conf.animDbStretch !== false; 
-    document.getElementById('enableBlinkCheckbox').checked = conf.enableBlink !== false;
-    document.getElementById('enableShoutCheckbox').checked = conf.enableShout !== false;
+    
+    // Toggles por defecto apagados
+    document.getElementById('enableBlinkCheckbox').checked = conf.enableBlink === true;
+    document.getElementById('enableShoutCheckbox').checked = conf.enableShout === true;
+    document.getElementById('enableMuteCheckbox').checked = conf.enableMute === true;
+    document.getElementById('enableDeafenCheckbox').checked = conf.enableDeafen === true;
     document.getElementById('animPivot').value = conf.animPivot || '50% 100%';
     document.getElementById('animDirection').value = conf.animDirection || 'vertical';
     document.getElementById('animSafeZone').value = conf.animSafeZone !== undefined ? conf.animSafeZone : 50;
     document.getElementById('animSafeZoneLabel').textContent = `${document.getElementById('animSafeZone').value} px`;
     refreshPreviewLayout();
+
+    document.getElementById('maxExaggerationInput').value = conf.maxExaggeration !== undefined ? conf.maxExaggeration : 1.0;
+    document.getElementById('maxExaggerationLabel').textContent = `${parseFloat(document.getElementById('maxExaggerationInput').value).toFixed(1)}x`;
     
     const rStretch = document.getElementById('maxDbStretchInput');
     rStretch.value = conf.maxDbStretch !== undefined ? conf.maxDbStretch : -22;
@@ -292,6 +423,11 @@ document.getElementById('animSafeZone').addEventListener('input', (e) => {
     document.getElementById('animSafeZoneLabel').textContent = `${e.target.value} px`;
     refreshPreviewLayout();
 });
+
+document.getElementById('maxExaggerationInput').addEventListener('input', (e) => {
+    document.getElementById('maxExaggerationLabel').textContent = `${parseFloat(e.target.value).toFixed(1)}x`;
+});
+
 document.getElementById('animPivot').addEventListener('change', refreshPreviewLayout);
 document.getElementById('blinkIntervalInput').addEventListener('input', (e) => {
     document.getElementById('blinkIntervalLabel').textContent = `${e.target.value} s`;
@@ -445,7 +581,9 @@ form.addEventListener('submit', async (e) => {
     });
 
     formData.append('animIntro', document.getElementById('animIntro').value);
+    formData.append('animIntroDir', document.getElementById('animIntroDir').value);
     formData.append('animOutro', document.getElementById('animOutro').value);
+    formData.append('animOutroDir', document.getElementById('animOutroDir').value);
     formData.append('animSpeaking', document.getElementById('animSpeaking').value);
     formData.append('animPivot', document.getElementById('animPivot').value);
     formData.append('animDirection', document.getElementById('animDirection').value);
@@ -454,6 +592,10 @@ form.addEventListener('submit', async (e) => {
     formData.append('animDbStretch', document.getElementById('animDbStretch').checked);
     formData.append('enableBlink', document.getElementById('enableBlinkCheckbox').checked);
     formData.append('enableShout', document.getElementById('enableShoutCheckbox').checked);
+    formData.append('enableMute', document.getElementById('enableMuteCheckbox').checked);
+    formData.append('enableDeafen', document.getElementById('enableDeafenCheckbox').checked);
+    formData.append('maxExaggeration', document.getElementById('maxExaggerationInput').value);
+    
     formData.append('maxDbStretch', document.getElementById('maxDbStretchInput').value);
     formData.append('maxDbShout', document.getElementById('maxDbShoutInput').value);
     formData.append('minDbGate', document.getElementById('minDbGateInput').value);
@@ -550,7 +692,18 @@ function refreshPreviewLayout() {
     avatar.style.transformOrigin = pivot;
     avatar.style.backgroundPosition = pivot;
 }
-
+function refreshAnimDirs() {
+    const introVal = document.getElementById('animIntro').value;
+    const outroVal = document.getElementById('animOutro').value;
+    
+    const introDirEl = document.getElementById('animIntroDir');
+    if(introDirEl) introDirEl.style.display = ['slide', 'bounce', 'back', 'slingshot'].includes(introVal) ? 'block' : 'none';
+    
+    const outroDirEl = document.getElementById('animOutroDir');
+    if(outroDirEl) outroDirEl.style.display = ['slide', 'bounce', 'back', 'slingshot'].includes(outroVal) ? 'block' : 'none';
+}
+document.getElementById('animIntro').addEventListener('change', refreshAnimDirs);
+document.getElementById('animOutro').addEventListener('change', refreshAnimDirs);
 
 // GSAP TESTER
 function testAnim(type) {
@@ -559,81 +712,127 @@ function testAnim(type) {
     
     // reset
     const pivot = document.getElementById('animPivot').value || '50% 100%';
-    gsap.set(avatar, { scale: 1, scaleY: 1, y: 0, opacity: 1, rotation: 0, transformOrigin: pivot });
+    gsap.set(avatar, { scale: 1, scaleX: 1, scaleY: 1, x: 0, y: 0, opacity: 1, rotation: 0, rotationY: 0, transformOrigin: pivot });
 
     refreshPreviewLayout();
 
     const idleBg = document.getElementById('idlePreview').style.backgroundImage;
     const speakingBg = document.getElementById('speakingPreview').style.backgroundImage;
 
+    const maxEx = parseFloat(document.getElementById('maxExaggerationInput').value) || 1.0;
+
+    // Helper for directional math
+    const getDirVals = (dir, dist) => {
+        if (dir === 'up') return { y: dist, x: 0 };
+        if (dir === 'down') return { y: -dist, x: 0 };
+        if (dir === 'left') return { x: dist, y: 0 };
+        if (dir === 'right') return { x: -dist, y: 0 };
+        return { y: dist, x: 0 };
+    };
+
     if (type === 'intro') {
         const anim = document.getElementById('animIntro').value;
+        const dir = document.getElementById('animIntroDir') ? document.getElementById('animIntroDir').value : 'up';
         avatar.style.backgroundImage = idleBg;
+        
+        let p = getDirVals(dir, 300);
+
         if (anim === 'pop') gsap.fromTo(avatar, { scale: 0 }, { scale: 1, duration: 0.5, ease: "back.out(1.7)" });
-        else if (anim === 'slideUp') gsap.fromTo(avatar, { y: 200 }, { y: 0, duration: 0.5, ease: "power2.out" });
         else if (anim === 'fade') gsap.fromTo(avatar, { opacity: 0 }, { opacity: 1, duration: 0.5 });
-        else if (anim === 'bounce') gsap.fromTo(avatar, { y: -200 }, { y: 0, duration: 0.8, ease: "bounce.out" });
-        else if (anim === 'spin') gsap.fromTo(avatar, { scale: 0, rotation: -360 }, { scale: 1, rotation: 0, duration: 0.6, ease: "power2.out" });
-        else if (anim === 'swing') gsap.fromTo(avatar, { rotation: 90, opacity: 0 }, { rotation: 0, opacity: 1, duration: 0.6, ease: "elastic.out(1, 0.5)" });
         else if (anim === 'zoomIn') gsap.fromTo(avatar, { scale: 3, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.5, ease: "power2.out" });
-        else if (anim === 'slideRight') gsap.fromTo(avatar, { x: -300, opacity: 0 }, { x: 0, opacity: 1, duration: 0.5, ease: "back.out(1.4)" });
-        else if (anim === 'slideLeft') gsap.fromTo(avatar, { x: 300, opacity: 0 }, { x: 0, opacity: 1, duration: 0.5, ease: "back.out(1.4)" });
+        else if (anim === 'spin') gsap.fromTo(avatar, { scale: 0, rotation: -360 }, { scale: 1, rotation: 0, duration: 0.6, ease: "power2.out" });
         else if (anim === 'flip') gsap.fromTo(avatar, { rotationY: 90, opacity: 0 }, { rotationY: 0, opacity: 1, duration: 0.6, ease: "back.out(1.4)" });
         else if (anim === 'rollIn') gsap.fromTo(avatar, { x: -300, rotation: -200, opacity: 0 }, { x: 0, rotation: 0, opacity: 1, duration: 0.6, ease: "power2.out" });
+        else if (anim === 'slide') gsap.fromTo(avatar, { x: p.x, y: p.y, opacity: 0 }, { x: 0, y: 0, opacity: 1, duration: 0.5, ease: "power2.out" });
+        else if (anim === 'bounce') gsap.fromTo(avatar, { x: p.x, y: p.y }, { x: 0, y: 0, duration: 0.8, ease: "bounce.out" });
+        else if (anim === 'back') gsap.fromTo(avatar, { x: p.x, y: p.y, opacity: 0 }, { x: 0, y: 0, opacity: 1, duration: 0.6, ease: "back.out(1.7)" });
+        else if (anim === 'slingshot') {
+            gsap.fromTo(avatar, { x: p.x * -0.2, y: p.y * -0.2, scale: 1.2 }, { x: 0, y: 0, scale: 1, duration: 0.7, ease: "elastic.out(1, 0.4)" });
+        }
     } else if (type === 'speaking') {
         const anim = document.getElementById('animSpeaking').value;
         const dir = document.getElementById('animDirection').value || 'vertical';
         avatar.style.backgroundImage = speakingBg !== 'none' ? speakingBg : idleBg;
         
         let tl = gsap.timeline();
+        let p = { x: 0, y: 0, rotation: 0, scaleX: 1, scaleY: 1 };
+        let d = 0.15;
+
+        // Apply maxExaggeration math internally for the preview translation
+        const ex = (val, base = 0) => base + ((val - base) * maxEx);
+        const exScale = (val) => 1 + ((val - 1) * maxEx);
+
         if (anim === 'bounce_talk') {
-            tl.to(avatar, dir === 'horizontal' ? { x: 20, duration: 0.15, yoyo: true, repeat: 3 } : { y: -20, duration: 0.15, yoyo: true, repeat: 3 });
+            tl.to(avatar, dir === 'horizontal' ? { x: ex(20), duration: 0.15, yoyo: true, repeat: 3 } : { y: ex(-20), duration: 0.15, yoyo: true, repeat: 3 });
         } else if (anim === 'shake') {
-            tl.to(avatar, { rotation: 5, duration: 0.05, yoyo: true, repeat: 3 })
-              .to(avatar, { rotation: -5, duration: 0.05, yoyo: true, repeat: 3 })
-              .to(avatar, { rotation: 0, duration: 0.05 });
+            tl.to(avatar, { rotation: ex(5), duration: 0.05, yoyo: true, repeat: 3 })
+              .to(avatar, { rotation: ex(-5), duration: 0.05, yoyo: true, repeat: 3 });
         } else if (anim === 'float') {
-            tl.to(avatar, dir === 'horizontal' ? { x: 15, duration: 0.4, yoyo: true, repeat: 1 } : { y: -15, duration: 0.4, yoyo: true, repeat: 1 });
+            tl.to(avatar, dir === 'horizontal' ? { x: ex(15), duration: 0.4, yoyo: true, repeat: 1 } : { y: ex(-15), duration: 0.4, yoyo: true, repeat: 1 });
         } else if (anim === 'pulse') {
-            tl.to(avatar, { scale: 1.05, duration: 0.2, yoyo: true, repeat: 3 });
+            tl.to(avatar, { scale: exScale(1.05), duration: 0.2, yoyo: true, repeat: 3 });
         } else if (anim === 'wiggle') {
-            tl.to(avatar, { rotation: 6, duration: 0.08, yoyo: true, repeat: 5 })
-               .to(avatar, { rotation: -6, duration: 0.08, yoyo: true, repeat: 5 })
-               .to(avatar, { rotation: 0, duration: 0.08 });
+            tl.to(avatar, { rotation: ex(6), duration: 0.08, yoyo: true, repeat: 5 })
+               .to(avatar, { rotation: ex(-6), duration: 0.08, yoyo: true, repeat: 5 });
         } else if (anim === 'jump') {
-            tl.to(avatar, dir === 'horizontal' ? { x: -30, duration: 0.2, yoyo: true, repeat: 3, ease: "power1.inOut" } : { y: -30, duration: 0.2, yoyo: true, repeat: 3, ease: "power1.inOut" });
+            tl.to(avatar, dir === 'horizontal' ? { x: ex(-30), duration: 0.2, yoyo: true, repeat: 3, ease: "power1.inOut" } : { y: ex(-30), duration: 0.2, yoyo: true, repeat: 3, ease: "power1.inOut" });
         } else if (anim === 'stretch') {
-            tl.to(avatar, dir === 'horizontal' ? { scaleX: 1.15, scaleY: 0.95, duration: 0.15, yoyo: true, repeat: 3 } : { scaleY: 1.15, scaleX: 0.95, duration: 0.15, yoyo: true, repeat: 3 });
+            tl.to(avatar, dir === 'horizontal' ? { scaleX: exScale(1.15), scaleY: exScale(0.95), duration: 0.15, yoyo: true, repeat: 3 } : { scaleY: exScale(1.15), scaleX: exScale(0.95), duration: 0.15, yoyo: true, repeat: 3 });
         } else if (anim === 'tada') {
-            tl.to(avatar, { scale: 1.1, rotation: 5, duration: 0.15, yoyo: true, repeat: 3 });
+            tl.to(avatar, { scale: exScale(1.1), rotation: ex(5), duration: 0.15, yoyo: true, repeat: 3 });
         } else if (anim === 'rubberband') {
-            tl.to(avatar, dir === 'horizontal' ? { scaleX: 1.25, scaleY: 0.75, duration: 0.15, yoyo: true, repeat: 2 } : { scaleY: 1.25, scaleX: 0.75, duration: 0.15, yoyo: true, repeat: 2 });
+            tl.to(avatar, dir === 'horizontal' ? { scaleX: exScale(1.25), scaleY: exScale(0.75), duration: 0.15, yoyo: true, repeat: 2 } : { scaleY: exScale(1.25), scaleX: exScale(0.75), duration: 0.15, yoyo: true, repeat: 2 });
         } else if (anim === 'heartbeat') {
-            tl.to(avatar, { scale: 1.15, duration: 0.1, yoyo: true, repeat: 3 });
+            tl.to(avatar, { scale: exScale(1.15), duration: 0.1, yoyo: true, repeat: 3 });
         } else if (anim === 'jello') {
-            tl.to(avatar, { rotation: 10, duration: 0.1, yoyo: true, repeat: 3 });
+            tl.to(avatar, { rotation: ex(10), duration: 0.1, yoyo: true, repeat: 3 });
         } else if (anim === 'swing_hablando') {
-            tl.to(avatar, { rotation: 15, duration: 0.2, yoyo: true, repeat: 3 });
+            tl.to(avatar, { rotation: ex(15), duration: 0.2, yoyo: true, repeat: 3 });
+        } 
+        // NEW Anime.js Inspired
+        else if (anim === 'sine_wave') {
+            tl.to(avatar, dir === 'horizontal' ? { x: ex(25), ease: "sine.inOut", duration: 0.3, yoyo: true, repeat: 3 } : { y: ex(-25), ease: "sine.inOut", duration: 0.3, yoyo: true, repeat: 3 });
+        } else if (anim === 'pendulum') {
+            tl.to(avatar, { rotation: ex(20), ease: "sine.inOut", duration: 0.25, yoyo: true, repeat: 3 })
+              .to(avatar, { rotation: ex(-20), ease: "sine.inOut", duration: 0.25, yoyo: true, repeat: 3 });
+        } else if (anim === 'tremble') {
+            tl.to(avatar, { x: ex(3), y: ex(-3), rotation: ex(2), duration: 0.03, yoyo: true, repeat: 15 });
+        } else if (anim === 'squish') {
+            tl.to(avatar, { scaleX: exScale(1.3), scaleY: exScale(0.7), y: ex(10), duration: 0.08, yoyo: true, repeat: 5 });
+        } else if (anim === 'orbit') {
+            tl.to(avatar, { rotation: ex(15), x: ex(10), y: ex(-10), ease: "none", duration: 0.1, yoyo: true, repeat: 5 });
+        } else if (anim === 'breathe') {
+            tl.to(avatar, { scaleX: exScale(1.05), scaleY: exScale(1.05), ease: "sine.inOut", duration: 0.5, yoyo: true, repeat: 1 });
+        } else if (anim === 'glitch') {
+            tl.to(avatar, { x: ex(15), skewX: ex(10), ease: "steps(2)", duration: 0.1, yoyo: true, repeat: 5 })
+              .to(avatar, { x: ex(-15), skewX: ex(-10), ease: "steps(2)", duration: 0.1, yoyo: true, repeat: 5 });
         }
         
-        tl.call(() => { avatar.style.backgroundImage = idleBg; gsap.to(avatar, {x:0, y:0, rotation:0, scaleX:1, scaleY:1}); });
+        tl.call(() => { avatar.style.backgroundImage = idleBg; gsap.to(avatar, {x:0, y:0, rotation:0, skewX:0, scaleX:1, scaleY:1}); });
     } else if (type === 'outro') {
         const anim = document.getElementById('animOutro').value;
+        const dir = document.getElementById('animOutroDir') ? document.getElementById('animOutroDir').value : 'down';
         avatar.style.backgroundImage = idleBg;
+
+        let p = getDirVals(dir, 300);
+        
         if (anim === 'popOut') gsap.to(avatar, { scale: 0, duration: 0.4, ease: "back.in(1.7)" });
-        else if (anim === 'slideDown') gsap.to(avatar, { y: 200, duration: 0.4, ease: "power2.in" });
         else if (anim === 'fade') gsap.to(avatar, { opacity: 0, duration: 0.4 });
         else if (anim === 'spinOut') gsap.to(avatar, { scale: 0, rotation: 360, duration: 0.4, ease: "power2.in" });
-        else if (anim === 'swingOut') gsap.to(avatar, { rotation: 90, opacity: 0, duration: 0.4, ease: "power2.in" });
         else if (anim === 'zoomOut') gsap.to(avatar, { scale: 3, opacity: 0, duration: 0.4, ease: "power2.in" });
-        else if (anim === 'slideRightOut') gsap.to(avatar, { x: 300, opacity: 0, duration: 0.4, ease: "back.in(1.4)" });
-        else if (anim === 'slideLeftOut') gsap.to(avatar, { x: -300, opacity: 0, duration: 0.4, ease: "back.in(1.4)" });
         else if (anim === 'flipOut') gsap.to(avatar, { rotationY: 90, opacity: 0, duration: 0.4, ease: "back.in(1.4)" });
         else if (anim === 'rollOut') gsap.to(avatar, { x: 300, rotation: 200, opacity: 0, duration: 0.4, ease: "power2.in" });
+        else if (anim === 'slide') gsap.to(avatar, { x: p.x * -1, y: p.y * -1, opacity: 0, duration: 0.5, ease: "power2.in" });
+        else if (anim === 'bounce') gsap.to(avatar, { x: p.x * -1, y: p.y * -1, opacity: 0, duration: 0.8, ease: "bounce.in" });
+        else if (anim === 'back') gsap.to(avatar, { x: p.x * -1, y: p.y * -1, opacity: 0, duration: 0.6, ease: "back.in(1.7)" });
+        else if (anim === 'slingshot') {
+            gsap.to(avatar, { x: p.x * -1, y: p.y * -1, scale: 0.5, opacity: 0, duration: 0.7, ease: "elastic.in(1, 0.4)" });
+        }
         
         setTimeout(() => gsap.set(avatar, { scale: 1, x: 0, y: 0, opacity: 1, rotation: 0, rotationY: 0 }), 1000);
     }
 }
+
 
 // Live local browser Mic preview mechanics for UI isolation 
 let audioContext, analyser, microphone, micStream, isMicPreviewActive = false;
@@ -838,6 +1037,45 @@ function loopMicPreview() {
             p.rotation = Math.sin(Date.now() / 60) * (30 * intensity);
             if (dir === 'horizontal') p.x = Math.sin(Date.now() / 60) * (20 * intensity);
             d = 0.12;
+        } else if (anim === 'sine_wave') {
+            if (dir === 'horizontal') p.x = Math.sin(Date.now() / 100) * (40 * intensity); 
+            else p.y = Math.sin(Date.now() / 100) * (-40 * intensity);
+            d = 0.1;
+        } else if (anim === 'pendulum') {
+            p.rotation = Math.sin(Date.now() / 120) * (45 * intensity);
+            d = 0.1;
+        } else if (anim === 'tremble') {
+            p.x = (Math.random() > 0.5 ? 1 : -1) * (5 * intensity);
+            p.y = (Math.random() > 0.5 ? 1 : -1) * (5 * intensity);
+            p.rotation = (Math.random() > 0.5 ? 1 : -1) * (3 * intensity);
+            d = 0.03;
+        } else if (anim === 'squish') {
+            p.scaleX = 1.0 + (0.6 * intensity);
+            p.scaleY = 1.0 - (0.5 * intensity);
+            p.y = 15 * intensity;
+            d = Math.max(0.04, 0.1 - (0.05 * intensity));
+        } else if (anim === 'orbit') {
+            p.x = Math.cos(Date.now() / 80) * (25 * intensity);
+            p.y = Math.sin(Date.now() / 80) * (25 * intensity);
+            p.rotation = Math.cos(Date.now() / 100) * (15 * intensity);
+            d = 0.08;
+        } else if (anim === 'breathe') {
+            p.scaleX = 1.0 + (0.15 * intensity);
+            p.scaleY = 1.0 + (0.15 * intensity);
+            d = 0.15;
+        } else if (anim === 'glitch') {
+            p.x = (Math.random() > 0.5 ? 1 : -1) * (20 * intensity);
+            p.skewX = (Math.random() > 0.5 ? 1 : -1) * (20 * intensity);
+            d = 0.05;
+        }
+
+        const maxEx = parseFloat(document.getElementById('maxExaggerationInput').value) || 1.0;
+        if (maxEx !== 1.0) {
+            p.x *= maxEx;
+            p.y *= maxEx;
+            p.rotation *= maxEx;
+            if (p.scaleX !== 1) p.scaleX = 1 + ((p.scaleX - 1) * maxEx);
+            if (p.scaleY !== 1) p.scaleY = 1 + ((p.scaleY - 1) * maxEx);
         }
         
         gsap.to(avatar, { ...p, duration: d, ease: "power1.out", overwrite: "auto" });

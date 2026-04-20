@@ -18,9 +18,68 @@ const io = new Server(server, { cors: { origin: '*' } });
 // Redirigir el index (raíz) al panel de control automáticamente
 app.get('/', (req, res) => res.redirect('/config.html'));
 
+app.use(express.json());
+
+function getCookie(req, name) {
+    if (!req.headers.cookie) return null;
+    const value = `; ${req.headers.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+    return null;
+}
+
+// --- WEB UI AUTHENTICATION ---
+app.get('/api/auth/status', (req, res) => {
+    const hasCreds = Boolean(process.env.WEB_USER && process.env.WEB_PASSWORD);
+    res.json({ setupRequired: !hasCreds });
+});
+
+app.post('/api/auth/login', (req, res) => {
+    const { user, password } = req.body;
+    if (!user || !password) return res.status(400).json({ error: 'Faltan credenciales' });
+
+    // Modo Setup si no hay config
+    if (!process.env.WEB_USER || !process.env.WEB_PASSWORD) {
+        process.env.WEB_USER = user;
+        process.env.WEB_PASSWORD = password;
+        fs.appendFileSync(path.join(__dirname, '.env'), `\nWEB_USER=${user}\nWEB_PASSWORD=${password}\n`);
+        const token = Buffer.from(`${user}:${password}`).toString('base64');
+        res.cookie('webAuthToken', token, { maxAge: 1000*60*60*24*30, httpOnly: false });
+        return res.json({ success: true, token });
+    }
+
+    // Modo Login
+    if (user === process.env.WEB_USER && password === process.env.WEB_PASSWORD) {
+        const token = Buffer.from(`${user}:${password}`).toString('base64');
+        res.cookie('webAuthToken', token, { maxAge: 1000*60*60*24*30, httpOnly: false });
+        res.json({ success: true, token });
+    } else {
+        res.status(401).json({ error: 'Credenciales inválidas' });
+    }
+});
+
+const checkWebAuth = (req, res, next) => {
+    if (!process.env.WEB_USER || !process.env.WEB_PASSWORD) return next();
+    
+    const token = getCookie(req, 'webAuthToken') || req.headers['x-web-token'];
+    const validToken = Buffer.from(`${process.env.WEB_USER}:${process.env.WEB_PASSWORD}`).toString('base64');
+    
+    if (token === validToken) {
+        next();
+    } else {
+        if (req.path === '/config.html') return res.redirect('/login.html');
+        res.status(401).json({ error: 'No autorizado / Sesión expirada' });
+    }
+};
+
+// Proteger config.html antes de servir estáticos
+app.get('/config.html', checkWebAuth, (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'config.html'));
+});
+
 // Middleware para servir archivos estáticos (frontend)
 app.use(express.static(path.join(__dirname, 'public')));
-app.use(express.json());
+// -----------------------------
 
 // Configuración de multer usando RAM, para pre-procesar imágenes antes de guardarlas a disco
 const upload = multer({ storage: multer.memoryStorage() });
@@ -68,7 +127,7 @@ app.get('/api/voice-users', async (req, res) => {
 });
 
 // API: Configuración de Perfiles
-app.get('/api/config', (req, res) => {
+app.get('/api/config', checkWebAuth, (req, res) => {
     // Sanitizar base de datos ocultando tokens en modo lista
     const safeConf = JSON.parse(JSON.stringify(userConfigs));
     for (const id in safeConf) delete safeConf[id].apiToken;
@@ -76,13 +135,14 @@ app.get('/api/config', (req, res) => {
 });
 
 app.get('/api/config/:userId', (req, res) => {
+    // OBS Endpoint abierto al público local
     const usr = JSON.parse(JSON.stringify(userConfigs[req.params.userId] || {}));
     delete usr.apiToken;
     res.json(usr);
 });
 
 // API: Guardar imágenes y config de un usuario o de uno de sus perfiles
-app.post('/api/config', upload.fields([
+app.post('/api/config', checkWebAuth, upload.fields([
     { name: 'idle', maxCount: 1 }, 
     { name: 'speaking', maxCount: 1 },
     { name: 'idleBlink', maxCount: 1 },
@@ -157,7 +217,7 @@ app.post('/api/config', upload.fields([
 });
 
 // API: Configuración de Perfiles
-app.post('/api/config/delete-profile', express.json(), (req, res) => {
+app.post('/api/config/delete-profile', checkWebAuth, express.json(), (req, res) => {
     const { userId, profileId } = req.body;
     if (!userConfigs[userId] || !userConfigs[userId].profiles[profileId]) return res.status(400).json({ error: 'Perfil no existe' });
     
@@ -167,7 +227,7 @@ app.post('/api/config/delete-profile', express.json(), (req, res) => {
 });
 
 // API: Generar Token Secreto para Macro
-app.post('/api/config/token', express.json(), (req, res) => {
+app.post('/api/config/token', checkWebAuth, express.json(), (req, res) => {
     const { userId } = req.body;
     if (!userConfigs[userId]) return res.status(400).json({ error: 'Usuario inexistente' });
 
@@ -217,10 +277,32 @@ app.post('/api/macro/swap', express.json(), (req, res) => {
 // === MÓDULO DE CLIENTE DISCORD DINÁMICO ===
 
 const SYS_DB_FILE = path.join(__dirname, 'systemConfig.json');
-let systemConfig = { discordToken: null };
+let systemConfig = { discordToken: null, allowedAdminUsers: [] };
 if (fs.existsSync(SYS_DB_FILE)) {
-    try { systemConfig = JSON.parse(fs.readFileSync(SYS_DB_FILE, 'utf8')); } catch(e) {}
+    try { systemConfig = { discordToken: null, allowedAdminUsers: [], ...JSON.parse(fs.readFileSync(SYS_DB_FILE, 'utf8')) }; } catch(e) {}
 }
+
+// API: Permisos de Comandos
+app.get('/api/permissions', checkWebAuth, (req, res) => {
+    res.json({ allowedUsers: systemConfig.allowedAdminUsers || [] });
+});
+
+app.post('/api/permissions', checkWebAuth, express.json(), (req, res) => {
+    const { userId } = req.body;
+    if (!userId) return res.status(400).json({ error: 'ID requerido' });
+    if (!systemConfig.allowedAdminUsers.includes(userId)) {
+        systemConfig.allowedAdminUsers.push(userId);
+        fs.writeFileSync(SYS_DB_FILE, JSON.stringify(systemConfig, null, 2));
+    }
+    res.json({ success: true, allowedUsers: systemConfig.allowedAdminUsers });
+});
+
+app.post('/api/permissions/delete', checkWebAuth, express.json(), (req, res) => {
+    const { userId } = req.body;
+    systemConfig.allowedAdminUsers = systemConfig.allowedAdminUsers.filter(id => id !== userId);
+    fs.writeFileSync(SYS_DB_FILE, JSON.stringify(systemConfig, null, 2));
+    res.json({ success: true, allowedUsers: systemConfig.allowedAdminUsers });
+});
 
 let client = null;
 let botStatus = 'offline';
@@ -232,7 +314,7 @@ app.get('/api/bot/status', (req, res) => {
 });
 
 // API: Iniciar Login dinámico
-app.post('/api/bot/login', express.json(), async (req, res) => {
+app.post('/api/bot/login', checkWebAuth, express.json(), async (req, res) => {
     const { token } = req.body;
     if (!token) return res.status(400).json({ error: 'Falta Token' });
     
@@ -254,7 +336,7 @@ app.post('/api/bot/login', express.json(), async (req, res) => {
 });
 
 // API: Cerrar sesión
-app.post('/api/bot/logout', express.json(), (req, res) => {
+app.post('/api/bot/logout', checkWebAuth, express.json(), (req, res) => {
     if (client) {
         client.destroy();
         client = null;
@@ -269,6 +351,17 @@ app.post('/api/bot/logout', express.json(), (req, res) => {
     
     io.emit('bot_status_change', { status: 'offline' });
     res.json({ success: true });
+});
+
+// API: Recargar Bot
+app.post('/api/bot/reload', checkWebAuth, express.json(), async (req, res) => {
+    if (!systemConfig.discordToken) return res.status(400).json({ error: 'No hay token conectado' });
+    try {
+        await initDiscordClient(systemConfig.discordToken);
+        res.json({ success: true });
+    } catch(e) {
+        res.status(500).json({ error: 'Error al recargar el bot' });
+    }
 });
 
 // Envoltura de inicialización
@@ -292,7 +385,11 @@ async function initDiscordClient(token) {
         
         io.emit('bot_status_change', { status: 'online', botTag: botTag });
 
-        const data = [{ name: 'join', description: 'Únete a tu canal de voz actual' }];
+        const data = [
+            { name: 'join', description: 'Únete a tu canal de voz actual' },
+            { name: 'leave', description: 'Obliga al bot a salir del canal de voz' },
+            { name: 'reload', description: 'Recarga los comandos y el estado del bot' }
+        ];
         try {
             for (const guild of client.guilds.cache.values()) {
                 await guild.commands.set(data).catch(() => {});
@@ -302,6 +399,14 @@ async function initDiscordClient(token) {
 
     client.on('interactionCreate', async interaction => {
         if (!interaction.isChatInputCommand()) return;
+
+        // Validar permisos
+        if (systemConfig.allowedAdminUsers && systemConfig.allowedAdminUsers.length > 0) {
+            if (!systemConfig.allowedAdminUsers.includes(interaction.user.id)) {
+                return interaction.reply({ content: '❌ No tienes permisos para usar mis comandos. Contacta al admin.', flags: [MessageFlags.Ephemeral] }).catch(() => {});
+            }
+        }
+
         if (interaction.commandName === 'join') {
             await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => {});
 
@@ -320,6 +425,27 @@ async function initDiscordClient(token) {
                 console.error(error);
                 await interaction.editReply({ content: 'Error al intentar unirme al canal.' }).catch(() => {});
             }
+        }
+
+        if (interaction.commandName === 'leave') {
+            await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => {});
+            if (currentVoiceChannel) {
+                destroyVoiceConnection(interaction.guild.id);
+                currentVoiceChannel = null;
+                await interaction.editReply({ content: 'Me he desconectado del canal de voz 👋' }).catch(() => {});
+            } else {
+                await interaction.editReply({ content: 'No estoy en ningún canal de voz.' }).catch(() => {});
+            }
+        }
+
+        if (interaction.commandName === 'reload') {
+            await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => {});
+            await interaction.editReply({ content: '🔄 Recargando... Por favor espera unos segundos.' }).catch(() => {});
+            setTimeout(() => {
+                if(systemConfig.discordToken) {
+                    initDiscordClient(systemConfig.discordToken).catch(console.error);
+                }
+            }, 1500);
         }
     });
 

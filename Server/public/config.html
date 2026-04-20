@@ -13,7 +13,7 @@
 <body>
 
     <!-- OVERLAY CUANDO EL BOT NO ESTA CONECTADO -->
-    <div id="botLoginOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9999; justify-content:center; align-items:center; flex-direction:column; text-align:center;">
+    <div id="botLoginOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9998; justify-content:center; align-items:center; flex-direction:column; text-align:center;">
         <h1 style="color:white; margin-bottom:10px; font-size:2.5rem;">🤖 Servidor de Discord Inactivo</h1>
         <p style="color:#949ba4; max-width:500px; margin-bottom:30px; font-size:1.1rem;">Tu instancia necesita el Token de la Aplicación de Discord para encender el motor y cargar los perfiles.</p>
         <div style="background:#2b2d31; padding:30px; border-radius:8px; border:1px solid #333;">
@@ -27,6 +27,7 @@
     <div id="botFixedStatus" style="position:fixed; top:15px; right:15px; display:none; align-items:center; gap:10px; background:#1e1f22; padding:8px 15px; border-radius:8px; border:1px solid #333; z-index:1000; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
         <span id="botStatusText" style="font-size:0.9rem; font-weight:bold; color:#43b581;">Online 🟢</span>
         <span id="botTagDisplay" style="font-size:0.9rem; font-weight:bold; color:#dbdee1;"></span>
+        <button type="button" id="discordReloadBtn" style="padding:4px 10px; font-size:0.8rem; background:#4e5058; color:white; border:none; border-radius:4px; font-weight:bold; cursor:pointer; transition:0.2s;">Recargar Bot</button>
         <button type="button" id="discordLogoutBtn" style="padding:4px 10px; font-size:0.8rem; background:#da373c; color:white; border:none; border-radius:4px; font-weight:bold; cursor:pointer; transition:0.2s;">Cerrar Sesión</button>
     </div>
 
@@ -72,6 +73,27 @@
                 </div>
             </div>
 
+            <hr>
+            <h2 style="margin-bottom: 0.5rem;">🔌 Módulos Activos (Toggles)</h2>
+            <div style="background: #111214; padding: 1.5rem; border-radius: 8px; border: 1px solid #4e5058; margin-bottom: 2rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                <label style="color: #dbdee1; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; font-size: 1.05rem;">
+                    <input type="checkbox" id="enableBlinkCheckbox" name="enableBlink">
+                    🟢 Habilitar Sistema de Pestañeo
+                </label>
+                <label style="color: #dbdee1; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; font-size: 1.05rem;">
+                    <input type="checkbox" id="enableShoutCheckbox" name="enableShout">
+                    🔥 Habilitar Activación por Gritos (Saturación)
+                </label>
+                <label style="color: #dbdee1; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; font-size: 1.05rem;">
+                    <input type="checkbox" id="enableMuteCheckbox" name="enableMute">
+                    🔇 Habilitar Sistema de Micrófono Silenciado
+                </label>
+                <label style="color: #dbdee1; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; font-size: 1.05rem;">
+                    <input type="checkbox" id="enableDeafenCheckbox" name="enableDeafen">
+                    🎧 Habilitar Sistema de Auriculares Apagados
+                </label>
+            </div>
+
             <h3>📸 Estados del Avatar</h3>
             <div class="upload-area grid-states">
                 <div class="upload-box">
@@ -112,10 +134,7 @@
                 
                 <div class="upload-box" style="border: 1px solid #4e5058; padding: 1rem; border-radius: 8px; justify-content: center; background: #2b2d31;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 1px solid #4e5058; padding-bottom: 0.5rem;">
-                        <div style="display: flex; gap: 0.5rem; align-items: center;">
-                            <input type="checkbox" id="enableBlinkCheckbox" name="enableBlink" checked>
-                            <label for="enableBlinkCheckbox" style="color: #23a559; font-weight: bold; cursor: pointer; font-size: 0.9rem;">🟢 Habilitar Sistema de Pestañeo</label>
-                        </div>
+                        <span style="color: #dbdee1; font-weight: bold; font-size: 1.1rem;">Ajustes de Pestañeo</span>
                         <button type="button" id="resetBlinkBtn" style="background: none; border: 1px solid #4e5058; color: #dbdee1; padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; cursor: pointer; transition: 0.2s;">↻ Restaurar</button>
                     </div>
                 
@@ -134,16 +153,13 @@
             </div>
             <div class="meter-container" style="background:#1e1f22; padding:1rem; border-radius:8px; border: 1px solid #4e5058; margin-bottom: 2rem;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                    <label for="maxDbStretchInput" style="color: #dbdee1; font-weight: 600;">Límite Físicas (Stretch/Velocidad al MAX)</label>
+                    <label for="maxDbStretchInput" style="color: #dbdee1; font-weight: 600;">Sensibilidad al Hablar Alto (Llega al máximo)</label>
                     <span id="maxDbStretchLabel" style="color: #5865F2; font-weight: 800; font-size: 1.2rem;">-22 dB</span>
                 </div>
                 <input type="range" id="maxDbStretchInput" name="maxDbStretch" min="-60" max="0" step="1" value="-22" style="width: 100%; cursor: pointer;">
                 
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem; margin-bottom: 0.5rem;">
-                    <label for="maxDbShoutInput" style="color: #e6aa00; font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
-                        <input type="checkbox" id="enableShoutCheckbox" name="enableShout" checked>
-                        Límite Saturación (Activar Cara de Grito)
-                    </label>
+                    <label for="maxDbShoutInput" style="color: #e6aa00; font-weight: 600;">Límite Saturación (Activar Cara de Grito)</label>
                     <span id="maxDbShoutLabel" style="color: #e6aa00; font-weight: 800; font-size: 1.2rem;">-15 dB</span>
                 </div>
                 <input type="range" id="maxDbShoutInput" name="maxDbShout" min="-60" max="0" step="1" value="-15" style="width: 100%; cursor: pointer;">
@@ -166,24 +182,33 @@
 
             <hr>
             <h2>🎬 Animaciones</h2>
-            <div class="form-group grid-3">
+            <div class="form-group grid-3" style="align-items: start;">
                 <div class="flex-column">
                     <label for="animIntro">Al Entrar</label>
                     <select id="animIntro" name="animIntro">
-                        <option value="none">None</option>
-                        <option value="pop">Pop In</option>
-                        <option value="slideUp">Slide Up</option>
-                        <option value="fade">Fade In</option>
-                        <option value="bounce">Bounce Drop</option>
-                        <option value="spin">Spin In</option>
-                        <option value="swing">Swing In</option>
-                        <option value="zoomIn">Zoom In</option>
-                        <option value="slideRight">Slide Right</option>
-                        <option value="slideLeft">Slide Left</option>
-                        <option value="flip">Flip 3D</option>
-                        <option value="rollIn">Roll In</option>
+                        <optgroup label="Básicas / Centrales">
+                            <option value="none">None</option>
+                            <option value="pop">Pop In</option>
+                            <option value="fade">Fade In</option>
+                            <option value="zoomIn">Zoom In</option>
+                            <option value="spin">Spin In</option>
+                            <option value="flip">Flip 3D</option>
+                            <option value="rollIn">Roll In</option>
+                        </optgroup>
+                        <optgroup label="Direccionales (Requieren Sentido)">
+                            <option value="slide">Slide (Deslizamiento)</option>
+                            <option value="bounce">Bounce (Rebote)</option>
+                            <option value="back">Back (Retirada Elástica)</option>
+                            <option value="slingshot">Slingshot (Resortera)</option>
+                        </optgroup>
                     </select>
-                    <button type="button" class="test-btn" onclick="testAnim('intro')">Prueba</button>
+                    <select id="animIntroDir" name="animIntroDir" style="margin-top: 0.5rem; display: none; background-color: #2b2d31; color: #dbdee1;">
+                        <option value="up">Desde Abajo (Hacia Arriba)</option>
+                        <option value="down">Desde Arriba (Hacia Abajo)</option>
+                        <option value="left">Desde Derecha (Hacia Izquierda)</option>
+                        <option value="right">Desde Izquierda (Hacia Derecha)</option>
+                    </select>
+                    <button type="button" class="test-btn" onclick="testAnim('intro')" style="margin-top: 0.5rem;">Prueba</button>
                 </div>
                 <div class="flex-column">
                     <label for="animSpeaking">Al Hablar</label>
@@ -199,33 +224,52 @@
                             <option value="pulse">Pulse</option>
                             <option value="rubberband">RubberBand (Animate.css)</option>
                         </optgroup>
-                        <optgroup label="Combinadas (Animista / Animate)">
+                        <optgroup label="Combinadas (Animista)">
                             <option value="wiggle">Wiggle (Loco)</option>
                             <option value="tada">Tada (Animate.css)</option>
-                            <option value="heartbeat">Heartbeat (Animista)</option>
-                            <option value="jello">Jello (Animista)</option>
+                            <option value="heartbeat">Heartbeat</option>
+                            <option value="jello">Jello</option>
                             <option value="swing_hablando">Swing (Balanceo)</option>
+                        </optgroup>
+                        <optgroup label="Físicas Complejas (Anime.js)">
+                            <option value="sine_wave">Sine Wave (Ondulatorio)</option>
+                            <option value="pendulum">Pendulum (Péndulo base)</option>
+                            <option value="tremble">Tremble (Temblor agudo)</option>
+                            <option value="squish">Squish (Compresión rápida)</option>
+                            <option value="orbit">Orbit (Órbita caótica)</option>
+                            <option value="breathe">Breathe (Respiración orgánica)</option>
+                            <option value="glitch">Glitch (Robótico / Errático)</option>
                         </optgroup>
                         <option value="none">Ninguna</option>
                     </select>
-                    <button type="button" class="test-btn" onclick="testAnim('speaking')">Prueba</button>
+                    <button type="button" class="test-btn" onclick="testAnim('speaking')" style="margin-top: 0.5rem;">Prueba</button>
                 </div>
                 <div class="flex-column">
                     <label for="animOutro">Al Salir</label>
                     <select id="animOutro" name="animOutro">
-                        <option value="none">None</option>
-                        <option value="popOut">Pop Out</option>
-                        <option value="slideDown">Slide Down</option>
-                        <option value="fade">Fade Out</option>
-                        <option value="spinOut">Spin Out</option>
-                        <option value="swingOut">Swing Out</option>
-                        <option value="zoomOut">Zoom Out</option>
-                        <option value="slideRightOut">Slide Right</option>
-                        <option value="slideLeftOut">Slide Left</option>
-                        <option value="flipOut">Flip Out 3D</option>
-                        <option value="rollOut">Roll Out</option>
+                        <optgroup label="Básicas / Centrales">
+                            <option value="none">None</option>
+                            <option value="popOut">Pop Out</option>
+                            <option value="fade">Fade Out</option>
+                            <option value="zoomOut">Zoom Out</option>
+                            <option value="spinOut">Spin Out</option>
+                            <option value="flipOut">Flip Out 3D</option>
+                            <option value="rollOut">Roll Out</option>
+                        </optgroup>
+                        <optgroup label="Direccionales (Requieren Sentido)">
+                            <option value="slide">Slide (Deslizamiento)</option>
+                            <option value="bounce">Bounce (Rebote)</option>
+                            <option value="back">Back (Retirada Elástica)</option>
+                            <option value="slingshot">Slingshot (Resortera)</option>
+                        </optgroup>
                     </select>
-                    <button type="button" class="test-btn" onclick="testAnim('outro')">Prueba</button>
+                    <select id="animOutroDir" name="animOutroDir" style="margin-top: 0.5rem; display: none; background-color: #2b2d31; color: #dbdee1;">
+                        <option value="down">Hacia Abajo (Se cae)</option>
+                        <option value="up">Hacia Arriba (Vuela)</option>
+                        <option value="right">Hacia la Derecha (Escapa)</option>
+                        <option value="left">Hacia la Izquierda (Escapa)</option>
+                    </select>
+                    <button type="button" class="test-btn" onclick="testAnim('outro')" style="margin-top: 0.5rem;">Prueba</button>
                 </div>
             </div>
 
@@ -272,6 +316,13 @@
                     <summary style="outline: none; font-weight: 600;">ℹ️ ¿Para qué sirve este margen?</summary>
                     <div style="margin-top: 0.5rem; line-height: 1.4; background: #2b2d31; padding: 10px; border-radius: 6px;">Añade espacio dinámico alrededor del personaje basado en el pivote. Evita que la cabeza se corte en OBS al usar animaciones que amplían su tamaño y elimina el bug donde el Tuber levitaba al ser escalado por debajo del suelo.</div>
                 </details>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem; margin-bottom: 0.5rem;">
+                    <label for="maxExaggerationInput" style="color: #dbdee1; font-weight: 600;">Exageración Máxima (Múltiplo de Intensidad al Hablar)</label>
+                    <span id="maxExaggerationLabel" style="color: #5865F2; font-weight: 800; font-size: 1.2rem;">1.0x</span>
+                </div>
+                <input type="range" id="maxExaggerationInput" name="maxExaggeration" min="0.1" max="3" step="0.1" value="1.0" style="width: 100%; cursor: pointer;">
+                <p style="font-size: 0.8rem; color: #949ba4; margin-top: 0.5rem;">Multiplica matemáticamente cuán lejos brinca o se estira la imagen en su volumen más fuerte. (Por defecto 1.0x).</p>
             </div>
 
             <div class="preview-stage-container">
@@ -291,6 +342,25 @@
 
             <button type="submit" id="saveBtn">Guardar Configuración</button>
         </form>
+
+        <hr style="margin-top:2rem">
+        <h2>🛡️ Permisos de Comandos (Discord)</h2>
+        <div style="background: #1e1f22; padding: 1.5rem; border-radius: 8px; border: 1px solid #4e5058; margin-bottom: 2rem;">
+            <p style="color: #949ba4; font-size: 0.9rem; margin-top:0;">Define quién puede usar los comandos <strong>/join, /leave, /reload</strong>. Si la lista está vacía, cualquiera podrá usarlos. Si añades al menos un usuario, el bot ignorará a los demás.</p>
+            
+            <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1.5rem;">
+                <select id="permUsersSelect" style="flex:1;">
+                    <option value="">Selecciona usuario del canal...</option>
+                </select>
+                <input type="text" id="permUserIdInput" placeholder="O pega un ID manualmente" style="flex:1; background: #111214; border: 1px solid #4e5058; color: white; padding: 0.5rem; border-radius: 4px;">
+                <button type="button" id="addPermBtn" style="background:#5865F2; color:white; border:none; padding:8px 16px; border-radius:4px; font-weight:bold; cursor:pointer;">Añadir</button>
+            </div>
+
+            <h4 style="color:#dbdee1; margin-bottom: 0.5rem;">Lista Blanca Actual</h4>
+            <ul id="permList" style="list-style: none; padding: 0; margin: 0; background: #111214; border-radius: 6px; border: 1px solid #333;">
+                <li style="padding: 10px; color: #949ba4; text-align: center;">Cargando lista...</li>
+            </ul>
+        </div>
 
         <div id="link-section" class="hidden">
             <h2>💡 Tu enlace para OBS</h2>

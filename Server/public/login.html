@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cucu V-Tuber System | Autenticación</title>
+    <link rel="icon" type="image/png" href="/icon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+            background: #313338;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .login-container {
+            background:#2b2d31; 
+            padding:40px; 
+            border-radius:12px; 
+            border:1px solid #1e1f22; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 15px; 
+            width: 350px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+        input {
+            padding:14px; 
+            font-size:1rem; 
+            border-radius:6px; 
+            border:1px solid #111214; 
+            background:#1e1f22; 
+            color:white; 
+            text-align:center; 
+            outline:none;
+            transition: 0.2s;
+        }
+        input:focus {
+            border-color: #5865F2;
+        }
+        button {
+            padding:14px 24px; 
+            font-size:1.1rem; 
+            font-weight:bold; 
+            background:#5865F2; 
+            color:white; 
+            border:none; 
+            border-radius:6px; 
+            cursor:pointer; 
+            transition:0.2s; 
+            margin-top: 10px;
+        }
+        button:hover {
+            background: #4752c4;
+        }
+        button:disabled {
+            background: #4e5058;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+    </style>
+</head>
+<body>
+    <div style="display:flex; flex-direction:column; align-items:center;">
+        <h1 id="loginTitle" style="color:white; margin-bottom:10px; font-size:2.5rem; text-shadow: 0 2px 4px rgba(0,0,0,0.5);">🔒 Autenticación</h1>
+        <p id="loginDesc" style="color:#949ba4; max-width:500px; margin-bottom:20px; font-size:1.1rem; text-align:center;">Cargando...</p>
+        
+        <div class="login-container" style="display:none;" id="formContainer">
+            <input type="text" id="webUserInput" placeholder="Usuario">
+            <input type="password" id="webPassInput" placeholder="Contraseña">
+            <button id="webLoginBtn">Ingresar</button>
+        </div>
+    </div>
+
+    <script>
+        const webLoginBtn = document.getElementById('webLoginBtn');
+        const webUserInput = document.getElementById('webUserInput');
+        const webPassInput = document.getElementById('webPassInput');
+        const loginTitle = document.getElementById('loginTitle');
+        const loginDesc = document.getElementById('loginDesc');
+        const formContainer = document.getElementById('formContainer');
+
+        async function checkWebAuth() {
+            try {
+                const res = await fetch('/api/auth/status');
+                const data = await res.json();
+                
+                if (data.setupRequired) {
+                    loginTitle.textContent = "⚙️ Crear Cuenta";
+                    loginDesc.textContent = "Establece el usuario y contraseña maestra para el servidor.";
+                    webLoginBtn.textContent = "Crear Cuenta y Entrar";
+                } else {
+                    loginTitle.textContent = "🔒 Iniciar Sesión";
+                    loginDesc.textContent = "Ingresa tus credenciales maestras.";
+                    webLoginBtn.textContent = "Entrar";
+                }
+                formContainer.style.display = 'flex';
+                webUserInput.focus();
+            } catch(e) {
+                loginDesc.textContent = "Error de conexión. El servidor no está respondiendo.";
+            }
+        }
+        checkWebAuth();
+
+        webPassInput.addEventListener('keydown', (e) => {
+            if(e.key === 'Enter') webLoginBtn.click();
+        });
+
+        webLoginBtn.addEventListener('click', async () => {
+            const user = webUserInput.value.trim();
+            const password = webPassInput.value.trim();
+            if(!user || !password) return alert('Debes completar ambos campos');
+            
+            webLoginBtn.disabled = true;
+            const originalText = webLoginBtn.textContent;
+            webLoginBtn.textContent = 'Procesando...';
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user, password })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    window.location.href = '/config.html';
+                } else {
+                    alert(data.error || 'Credenciales inválidas');
+                    webPassInput.value = '';
+                    webPassInput.focus();
+                }
+            } catch (e) {
+                alert('Error conectando al servidor');
+            }
+            webLoginBtn.disabled = false;
+            webLoginBtn.textContent = originalText;
+        });
+    </script>
+</body>
+</html>

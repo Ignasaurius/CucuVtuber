@@ -33,7 +33,10 @@ function scheduleBlink() {
 }
 
 function executeBlink() {
-    if (isConnected && !isMuted && !isDeafened) {
+    const isVisuallyDeaf = isDeafened && conf.enableDeafen === true;
+    const isVisuallyMuted = isMuted && conf.enableMute === true;
+
+    if (isConnected && !isVisuallyMuted && !isVisuallyDeaf) {
         isBlinking = true;
         updateImage();
         
@@ -113,9 +116,9 @@ function updateImage() {
     
     let targetImg = conf.idle;
     
-    if (isDeafened) {
+    if (isDeafened && conf.enableDeafen === true) {
         targetImg = conf.deafened || conf.idle;
-    } else if (isMuted) {
+    } else if (isMuted && conf.enableMute === true) {
         targetImg = conf.muted || conf.idle;
     } else if (isShouting && conf.shouting) {
         targetImg = conf.shouting;
@@ -123,7 +126,11 @@ function updateImage() {
         targetImg = conf.speaking;
     }
     
-    if (isBlinking && !isMuted && !isDeafened && !isShouting) {
+    // Si estamos tapados por un mute/deafen HABILITADO, no pestañear si el dibujo base ya está ahí (a menos que quieran animar sobre eso, lo default es detener pestañeo en mute si está habilitado)
+    const isVisuallyDeaf = isDeafened && conf.enableDeafen === true;
+    const isVisuallyMuted = isMuted && conf.enableMute === true;
+
+    if (isBlinking && !isVisuallyMuted && !isVisuallyDeaf && !isShouting) {
         if (isSpeaking && conf.speakingBlink) targetImg = conf.speakingBlink;
         else if (!isSpeaking && conf.idleBlink) targetImg = conf.idleBlink;
     }
@@ -143,18 +150,30 @@ function handleConnect() {
         applyDOMPaddingLayout();
         
         const anim = conf.animIntro || 'pop';
+        const dir = conf.animIntroDir || 'up';
         
+        const getDirVals = (direction, distance) => {
+            if (direction === 'up') return { y: distance, x: 0 };
+            if (direction === 'down') return { y: -distance, x: 0 };
+            if (direction === 'left') return { x: distance, y: 0 };
+            if (direction === 'right') return { x: -distance, y: 0 };
+            return { y: distance, x: 0 };
+        };
+        
+        let p = getDirVals(dir, 300);
+
         if (anim === 'pop') gsap.fromTo(avatarElement, { scale: 0, opacity:1 }, { scale: 1, opacity: 1, duration: 0.5, ease: "back.out(1.7)" });
-        else if (anim === 'slideUp') gsap.fromTo(avatarElement, { y: 200, opacity:1 }, { y: 0, opacity: 1, duration: 0.5, ease: "power2.out" });
         else if (anim === 'fade') gsap.fromTo(avatarElement, { opacity: 0 }, { opacity: 1, duration: 0.5 });
-        else if (anim === 'bounce') gsap.fromTo(avatarElement, { y: -200, opacity:1 }, { y: 0, opacity: 1, duration: 0.8, ease: "bounce.out" });
-        else if (anim === 'spin') gsap.fromTo(avatarElement, { scale: 0, rotation: -360, opacity:1 }, { scale: 1, rotation: 0, opacity: 1, duration: 0.6, ease: "power2.out" });
-        else if (anim === 'swing') gsap.fromTo(avatarElement, { rotation: 90, opacity: 0 }, { rotation: 0, opacity: 1, duration: 0.6, ease: "elastic.out(1, 0.5)" });
         else if (anim === 'zoomIn') gsap.fromTo(avatarElement, { scale: 3, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.5, ease: "power2.out" });
-        else if (anim === 'slideRight') gsap.fromTo(avatarElement, { x: -300, opacity: 0 }, { x: 0, opacity: 1, duration: 0.5, ease: "back.out(1.4)" });
-        else if (anim === 'slideLeft') gsap.fromTo(avatarElement, { x: 300, opacity: 0 }, { x: 0, opacity: 1, duration: 0.5, ease: "back.out(1.4)" });
+        else if (anim === 'spin') gsap.fromTo(avatarElement, { scale: 0, rotation: -360, opacity:1 }, { scale: 1, rotation: 0, opacity: 1, duration: 0.6, ease: "power2.out" });
         else if (anim === 'flip') gsap.fromTo(avatarElement, { rotationY: 90, opacity: 0 }, { rotationY: 0, opacity: 1, duration: 0.6, ease: "back.out(1.4)" });
         else if (anim === 'rollIn') gsap.fromTo(avatarElement, { x: -300, rotation: -200, opacity: 0 }, { x: 0, rotation: 0, opacity: 1, duration: 0.6, ease: "power2.out" });
+        else if (anim === 'slide') gsap.fromTo(avatarElement, { x: p.x, y: p.y, opacity: 0 }, { x: 0, y: 0, opacity: 1, duration: 0.5, ease: "power2.out" });
+        else if (anim === 'bounce') gsap.fromTo(avatarElement, { x: p.x, y: p.y, opacity:1 }, { x: 0, y: 0, duration: 0.8, ease: "bounce.out" });
+        else if (anim === 'back') gsap.fromTo(avatarElement, { x: p.x, y: p.y, opacity: 0 }, { x: 0, y: 0, opacity: 1, duration: 0.6, ease: "back.out(1.7)" });
+        else if (anim === 'slingshot') {
+            gsap.fromTo(avatarElement, { x: p.x * -0.2, y: p.y * -0.2, scale: 1.2 }, { x: 0, y: 0, scale: 1, duration: 0.7, ease: "elastic.out(1, 0.4)" });
+        }
         else gsap.set(avatarElement, { opacity: 1, scale: 1, x: 0, y: 0, rotation: 0, rotationY: 0 });
     });
 }
@@ -170,16 +189,30 @@ function handleDisconnect() {
     gsap.killTweensOf(avatarElement);
 
     const anim = conf.animOutro || 'popOut';
+    const dir = conf.animOutroDir || 'down';
+    
+    const getDirVals = (direction, distance) => {
+        if (direction === 'up') return { y: distance, x: 0 };
+        if (direction === 'down') return { y: -distance, x: 0 };
+        if (direction === 'left') return { x: distance, y: 0 };
+        if (direction === 'right') return { x: -distance, y: 0 };
+        return { y: distance, x: 0 };
+    };
+    
+    let p = getDirVals(dir, 300);
+
     if (anim === 'popOut') gsap.to(avatarElement, { scale: 0, duration: 0.4, ease: "back.in(1.7)", onComplete: hide });
-    else if (anim === 'slideDown') gsap.to(avatarElement, { y: 200, duration: 0.4, ease: "power2.in", onComplete: hide });
     else if (anim === 'fade') gsap.to(avatarElement, { opacity: 0, duration: 0.4, onComplete: hide });
     else if (anim === 'spinOut') gsap.to(avatarElement, { scale: 0, rotation: 360, duration: 0.4, ease: "power2.in", onComplete: hide });
-    else if (anim === 'swingOut') gsap.to(avatarElement, { rotation: 90, opacity: 0, duration: 0.4, ease: "power2.in", onComplete: hide });
     else if (anim === 'zoomOut') gsap.to(avatarElement, { scale: 3, opacity: 0, duration: 0.4, ease: "power2.in", onComplete: hide });
-    else if (anim === 'slideRightOut') gsap.to(avatarElement, { x: 300, opacity: 0, duration: 0.4, ease: "back.in(1.4)", onComplete: hide });
-    else if (anim === 'slideLeftOut') gsap.to(avatarElement, { x: -300, opacity: 0, duration: 0.4, ease: "back.in(1.4)", onComplete: hide });
     else if (anim === 'flipOut') gsap.to(avatarElement, { rotationY: 90, opacity: 0, duration: 0.4, ease: "back.in(1.4)", onComplete: hide });
     else if (anim === 'rollOut') gsap.to(avatarElement, { x: 300, rotation: 200, opacity: 0, duration: 0.4, ease: "power2.in", onComplete: hide });
+    else if (anim === 'slide') gsap.to(avatarElement, { x: p.x * -1, y: p.y * -1, opacity: 0, duration: 0.5, ease: "power2.in", onComplete: hide });
+    else if (anim === 'bounce') gsap.to(avatarElement, { x: p.x * -1, y: p.y * -1, opacity: 0, duration: 0.8, ease: "bounce.in", onComplete: hide });
+    else if (anim === 'back') gsap.to(avatarElement, { x: p.x * -1, y: p.y * -1, opacity: 0, duration: 0.6, ease: "back.in(1.7)", onComplete: hide });
+    else if (anim === 'slingshot') {
+        gsap.to(avatarElement, { x: p.x * -1, y: p.y * -1, scale: 0.5, opacity: 0, duration: 0.7, ease: "elastic.in(1, 0.4)", onComplete: hide });
+    }
     else hide();
 
     function hide() {
@@ -194,32 +227,50 @@ function triggerSpeakingGsap() {
     const anim = conf.animSpeaking || 'bounce_talk';
     const dir = conf.animDirection || 'vertical';
     if (speakingTween) speakingTween.kill();
-    gsap.set(avatarElement, { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0 }); 
+    gsap.set(avatarElement, { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0, skewX: 0 }); 
+
+    const maxEx = conf.maxExaggeration !== undefined ? parseFloat(conf.maxExaggeration) : 1.0;
+    const ex = (val, base = 0) => base + ((val - base) * maxEx);
+    const exScale = (val) => 1 + ((val - 1) * maxEx);
     
     if (anim === 'bounce_talk') {
-        speakingTween = gsap.to(avatarElement, dir === 'horizontal' ? { x: 20, duration: 0.15, yoyo: true, repeat: -1 } : { y: -20, duration: 0.15, yoyo: true, repeat: -1 });
+        speakingTween = gsap.to(avatarElement, dir === 'horizontal' ? { x: ex(20), duration: 0.15, yoyo: true, repeat: -1 } : { y: ex(-20), duration: 0.15, yoyo: true, repeat: -1 });
     } else if (anim === 'shake') {
-        speakingTween = gsap.to(avatarElement, { rotation: 5, duration: 0.05, yoyo: true, repeat: -1 });
+        speakingTween = gsap.to(avatarElement, { rotation: ex(5), duration: 0.05, yoyo: true, repeat: -1 });
     } else if (anim === 'float') {
-        speakingTween = gsap.to(avatarElement, dir === 'horizontal' ? { x: 15, duration: 0.4, yoyo: true, repeat: -1 } : { y: -15, duration: 0.4, yoyo: true, repeat: -1 });
+        speakingTween = gsap.to(avatarElement, dir === 'horizontal' ? { x: ex(15), duration: 0.4, yoyo: true, repeat: -1 } : { y: ex(-15), duration: 0.4, yoyo: true, repeat: -1 });
     } else if (anim === 'pulse') {
-        speakingTween = gsap.to(avatarElement, { scale: 1.05, duration: 0.2, yoyo: true, repeat: -1 });
+        speakingTween = gsap.to(avatarElement, { scale: exScale(1.05), duration: 0.2, yoyo: true, repeat: -1 });
     } else if (anim === 'wiggle') {
-        speakingTween = gsap.to(avatarElement, { rotation: 6, duration: 0.08, yoyo: true, repeat: -1 });
+        speakingTween = gsap.to(avatarElement, { rotation: ex(6), duration: 0.08, yoyo: true, repeat: -1 });
     } else if (anim === 'jump') {
-        speakingTween = gsap.to(avatarElement, dir === 'horizontal' ? { x: -30, duration: 0.2, yoyo: true, repeat: -1, ease: "power1.inOut" } : { y: -30, duration: 0.2, yoyo: true, repeat: -1, ease: "power1.inOut" });
+        speakingTween = gsap.to(avatarElement, dir === 'horizontal' ? { x: ex(-30), duration: 0.2, yoyo: true, repeat: -1, ease: "power1.inOut" } : { y: ex(-30), duration: 0.2, yoyo: true, repeat: -1, ease: "power1.inOut" });
     } else if (anim === 'stretch') {
-        speakingTween = gsap.to(avatarElement, dir === 'horizontal' ? { scaleX: 1.15, scaleY: 0.95, duration: 0.15, yoyo: true, repeat: -1 } : { scaleY: 1.15, scaleX: 0.95, duration: 0.15, yoyo: true, repeat: -1 });
+        speakingTween = gsap.to(avatarElement, dir === 'horizontal' ? { scaleX: exScale(1.15), scaleY: exScale(0.95), duration: 0.15, yoyo: true, repeat: -1 } : { scaleY: exScale(1.15), scaleX: exScale(0.95), duration: 0.15, yoyo: true, repeat: -1 });
     } else if (anim === 'tada') {
-        speakingTween = gsap.to(avatarElement, { scale: 1.1, rotation: 5, duration: 0.15, yoyo: true, repeat: -1 });
+        speakingTween = gsap.to(avatarElement, { scale: exScale(1.1), rotation: ex(5), duration: 0.15, yoyo: true, repeat: -1 });
     } else if (anim === 'rubberband') {
-        speakingTween = gsap.to(avatarElement, dir === 'horizontal' ? { scaleX: 1.25, scaleY: 0.75, duration: 0.15, yoyo: true, repeat: -1 } : { scaleY: 1.25, scaleX: 0.75, duration: 0.15, yoyo: true, repeat: -1 });
+        speakingTween = gsap.to(avatarElement, dir === 'horizontal' ? { scaleX: exScale(1.25), scaleY: exScale(0.75), duration: 0.15, yoyo: true, repeat: -1 } : { scaleY: exScale(1.25), scaleX: exScale(0.75), duration: 0.15, yoyo: true, repeat: -1 });
     } else if (anim === 'heartbeat') {
-        speakingTween = gsap.to(avatarElement, { scale: 1.15, duration: 0.1, yoyo: true, repeat: -1 });
+        speakingTween = gsap.to(avatarElement, { scale: exScale(1.15), duration: 0.1, yoyo: true, repeat: -1 });
     } else if (anim === 'jello') {
-        speakingTween = gsap.to(avatarElement, { rotation: 10, duration: 0.1, yoyo: true, repeat: -1 });
+        speakingTween = gsap.to(avatarElement, { rotation: ex(10), duration: 0.1, yoyo: true, repeat: -1 });
     } else if (anim === 'swing_hablando') {
-        speakingTween = gsap.to(avatarElement, { rotation: 15, duration: 0.2, yoyo: true, repeat: -1 });
+        speakingTween = gsap.to(avatarElement, { rotation: ex(15), duration: 0.2, yoyo: true, repeat: -1 });
+    } else if (anim === 'sine_wave') {
+        speakingTween = gsap.to(avatarElement, dir === 'horizontal' ? { x: ex(25), ease: "sine.inOut", duration: 0.3, yoyo: true, repeat: -1 } : { y: ex(-25), ease: "sine.inOut", duration: 0.3, yoyo: true, repeat: -1 });
+    } else if (anim === 'pendulum') {
+        speakingTween = gsap.to(avatarElement, { rotation: ex(20), ease: "sine.inOut", duration: 0.25, yoyo: true, repeat: -1 });
+    } else if (anim === 'tremble') {
+        speakingTween = gsap.to(avatarElement, { x: ex(3), y: ex(-3), rotation: ex(2), duration: 0.03, yoyo: true, repeat: -1 });
+    } else if (anim === 'squish') {
+        speakingTween = gsap.to(avatarElement, { scaleX: exScale(1.3), scaleY: exScale(0.7), y: ex(10), duration: 0.08, yoyo: true, repeat: -1 });
+    } else if (anim === 'orbit') {
+        speakingTween = gsap.to(avatarElement, { rotation: ex(15), x: ex(10), y: ex(-10), ease: "none", duration: 0.1, yoyo: true, repeat: -1 });
+    } else if (anim === 'breathe') {
+        speakingTween = gsap.to(avatarElement, { scaleX: exScale(1.05), scaleY: exScale(1.05), ease: "sine.inOut", duration: 0.5, yoyo: true, repeat: -1 });
+    } else if (anim === 'glitch') {
+        speakingTween = gsap.to(avatarElement, { x: ex(15), skewX: ex(10), ease: "steps(2)", duration: 0.1, yoyo: true, repeat: -1 });
     }
 }
 
@@ -359,6 +410,45 @@ socket.on('user_volume', (data) => {
             p.rotation = Math.sin(Date.now() / 60) * (30 * intensity);
             if (dir === 'horizontal') p.x = Math.sin(Date.now() / 60) * (20 * intensity);
             d = 0.12;
+        } else if (anim === 'sine_wave') {
+            if (dir === 'horizontal') p.x = Math.sin(Date.now() / 100) * (40 * intensity); 
+            else p.y = Math.sin(Date.now() / 100) * (-40 * intensity);
+            d = 0.1;
+        } else if (anim === 'pendulum') {
+            p.rotation = Math.sin(Date.now() / 120) * (45 * intensity);
+            d = 0.1;
+        } else if (anim === 'tremble') {
+            p.x = (Math.random() > 0.5 ? 1 : -1) * (5 * intensity);
+            p.y = (Math.random() > 0.5 ? 1 : -1) * (5 * intensity);
+            p.rotation = (Math.random() > 0.5 ? 1 : -1) * (3 * intensity);
+            d = 0.03;
+        } else if (anim === 'squish') {
+            p.scaleX = 1.0 + (0.6 * intensity);
+            p.scaleY = 1.0 - (0.5 * intensity);
+            p.y = 15 * intensity;
+            d = Math.max(0.04, 0.1 - (0.05 * intensity));
+        } else if (anim === 'orbit') {
+            p.x = Math.cos(Date.now() / 80) * (25 * intensity);
+            p.y = Math.sin(Date.now() / 80) * (25 * intensity);
+            p.rotation = Math.cos(Date.now() / 100) * (15 * intensity);
+            d = 0.08;
+        } else if (anim === 'breathe') {
+            p.scaleX = 1.0 + (0.15 * intensity);
+            p.scaleY = 1.0 + (0.15 * intensity);
+            d = 0.15;
+        } else if (anim === 'glitch') {
+            p.x = (Math.random() > 0.5 ? 1 : -1) * (20 * intensity);
+            p.skewX = (Math.random() > 0.5 ? 1 : -1) * (20 * intensity);
+            d = 0.05;
+        }
+
+        const maxEx = conf.maxExaggeration !== undefined ? parseFloat(conf.maxExaggeration) : 1.0;
+        if (maxEx !== 1.0) {
+            p.x *= maxEx;
+            p.y *= maxEx;
+            p.rotation *= maxEx;
+            if (p.scaleX !== 1) p.scaleX = 1 + ((p.scaleX - 1) * maxEx);
+            if (p.scaleY !== 1) p.scaleY = 1 + ((p.scaleY - 1) * maxEx);
         }
 
         // Aplicamos la metamorfosis procedimental inmediatamente interponiéndonos sobre cualquier animación
